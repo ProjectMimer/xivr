@@ -1,0 +1,12 @@
+{
+  "Author": "StreetRat",
+  "Name": "XIVR",
+  "Punchline": "Mod to allow vr",
+  "Description": "Mod to allow vr. /xivr on /xivr off",
+  "InternalName": "xivr",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "vr",
+    "plugin"
+  ]
+}
