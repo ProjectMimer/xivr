@@ -227,7 +227,7 @@ namespace xivr
                     xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
                     PluginLog.Log("Setup Complete");
                 } 
-                else
+                else if(counter <= 300)
                 {
                     counter++;
                 }
