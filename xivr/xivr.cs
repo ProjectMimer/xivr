@@ -212,6 +212,13 @@ namespace xivr
                         xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
                         break;
                     }
+                case "conloc":
+                    {
+                        Configuration.conloc = !Configuration.conloc;
+                        Configuration.Save();
+                        xivr_hooks.SetConLoc(Configuration.conloc);
+                        break;
+                    }
             }
         }
 
@@ -225,6 +232,7 @@ namespace xivr
                     xivr_hooks.SetOffsetAmount(Configuration.offsetAmountX, Configuration.offsetAmountY);
                     xivr_hooks.SetSnapAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
                     xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
+                    xivr_hooks.SetConLoc(Configuration.conloc);
                     PluginLog.Log("Setup Complete");
                 } 
                 else if(counter <= 300)

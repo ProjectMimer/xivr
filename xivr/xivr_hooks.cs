@@ -24,7 +24,6 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 
 /* v2 
  * controller support
- * - basic - xbox emulation
  * - advanced - onward style movement + pointer ui + pointer ingame
  * vignett
  * floating screen scaling / offset
@@ -175,7 +174,8 @@ namespace xivr
         private int[] runCount = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         private float RadianConversion = MathF.PI / 180.0f;
         private Dictionary<ActionButtonLayout, bool> inputState = new Dictionary<ActionButtonLayout, bool>();
-        private bool doOnward = false;
+        private bool doLocomotion = false;
+        private int gameMode = 0;
 
         UpdateControllerInput controllerCallback;
 
@@ -474,6 +474,12 @@ namespace xivr
             UpdateZScale(z, scale);
         }
 
+        public void SetConLoc(bool conloc)
+        {
+            doLocomotion = conloc;
+        }
+
+        
         public void Draw()
         {
 
@@ -930,11 +936,12 @@ namespace xivr
                 Matrix4x4 lhcMatrix = GetFramePose(poseType.LeftHand, -1);
                 
                 Vector3 angles = GetAngles(lhcMatrix);
-                Matrix4x4 revOnward = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), angles.Y);
+                Matrix4x4 revOnward = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), -angles.Y);
                 Matrix4x4 zoom = Matrix4x4.CreateTranslation(0, 0, -cameraZoom);
-                revOnward = revOnward * zoom;
-                Matrix4x4.Invert(revOnward, out revOnward);
-                if (doOnward == false)
+                //revOnward = revOnward * zoom;
+                //Matrix4x4.Invert(revOnward, out revOnward);
+
+                if (doLocomotion == false || gameMode == 1)
                     revOnward = Matrix4x4.Identity;
 
                 
@@ -976,6 +983,8 @@ namespace xivr
             GameCamera* gameCamera = (GameCamera*)(a + 0x10);
             if (gameCamera != null && forceFloatingScreen == false)
             {
+                gameMode = gameCamera->Mode;
+
                 Matrix4x4 lhcMatrix = GetFramePose(poseType.LeftHand, -1);
                 //Matrix4x4.Invert(lhcMatrix, out lhcMatrix);
                 Vector3 angles = GetAngles(lhcMatrix);
@@ -988,7 +997,7 @@ namespace xivr
                     gameCamera->HRotationThisFrame2 = 0;
                 if (verticalLock)
                     gameCamera->VRotationThisFrame2 = 0;
-                if (doOnward == false)
+                if (doLocomotion == false || gameMode == 1)
                     onwardDiff.Y = 0;
 
                 float curH = gameCamera->CurrentHRotation;
