@@ -7,8 +7,8 @@
 #include <openvr.h>
 #include <openvr_capi.h>
 
-#include <fstream>
 #include "stCommon.h"
+#include "clsController.h"
 
 class simpleVR
 {
@@ -28,8 +28,9 @@ class simpleVR
 	uMatrix genericMatrix[3];
 	int gTrackCount;
 	float currentIPD;
-	std::ofstream* myfile;
-
+	ControllerList controllerID;
+	clsController controller;
+	
 	void InitalizeVR();
 	
 public:
@@ -41,4 +42,11 @@ public:
 	void SetFramePose();
 	uMatrix GetFramePose(poseType pose_type, int eye);
 	void Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye);
+
+	bool GetButtonHasChanged(ButtonList buttonID, ControllerType controllerType);
+	bool GetButtonIsTouched(ButtonList buttonID, ControllerType controllerType);
+	bool GetButtonIsPressed(ButtonList buttonID, ControllerType controllerType);
+	bool GetButtonIsDownFrame(ButtonList buttonID, ControllerType controllerType);
+	bool GetButtonIsUpFrame(ButtonList buttonID, ControllerType controllerType);
+	float GetButtonValue(ButtonList buttonID, ControllerType controllerType);
 };

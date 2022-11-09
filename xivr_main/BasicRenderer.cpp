@@ -39,91 +39,95 @@ bool BasicRenderer::CreateShaders()
 	ID3D10Blob* errorMessage;
 	ID3D10Blob* VS, * PS;
 
-	const char* defaultVertexShaderSrc =
-		"struct VOut\n"
-		"{\n"
-		"	float4 position : SV_POSITION;\n"
-		"	float2 tex : TEXCOORD0;\n"
-		"};\n"
-		"\n"
-		"VOut VShader(float4 position : POSITION, float2 tex : TEXCOORD0)\n"
-		"{\n"
-		"	VOut output;\n"
-		"	output.position = position;\n"
-		"	output.tex = tex;\n"
-		"	return output;\n"
-		"}\n";
+	const char* defaultVertexShaderSrc = R"""(
+struct VOut
+{
+	float4 position : SV_POSITION;
+	float2 tex : TEXCOORD0;
+};
+		
+VOut VShader(float4 position : POSITION, float2 tex : TEXCOORD0)
+{
+	VOut output;
+	output.position = position;
+	output.tex = tex;
+	return output;
+}
+		)""";
 
-	const char* defaultVertexShaderWithProjectionSrc =
-		"struct VOut\n"
-		"{\n"
-		"	float4 position : SV_POSITION;\n"
-		"	float2 tex : TEXCOORD0;\n"
-		"};\n"
-		"\n"
-		"cbuffer MatrixBuffer\n"
-		"{\n"
-		"	matrix worldMatrix;\n"
-		"	matrix viewMatrix;\n"
-		"	matrix projectionMatrix;\n"
-		"};\n"
-		"\n"
-		"VOut VShader(float4 position : POSITION, float2 tex : TEXCOORD0)\n"
-		"{\n"
-		"	position.w = 1.0f;\n"
-		"	VOut output;\n"
-		"	output.position = position;\n"
-		"	output.position = mul(output.position, worldMatrix);\n"
-		"	output.position = mul(output.position, viewMatrix);\n"
-		"	output.position = mul(output.position, projectionMatrix);\n"
-		"	output.tex = tex;\n"
-		"	return output;\n"
-		"}\n";
+	const char* defaultVertexShaderWithProjectionSrc = R"""(
+struct VOut
+{
+	float4 position : SV_POSITION;
+	float2 tex : TEXCOORD0;
+};
+		
+cbuffer MatrixBuffer
+{
+	matrix worldMatrix;
+	matrix viewMatrix;
+	matrix projectionMatrix;
+};
+		
+VOut VShader(float4 position : POSITION, float2 tex : TEXCOORD0)
+{
+	position.w = 1.0f;
+	VOut output;
+	output.position = position;
+	output.position = mul(output.position, worldMatrix);
+	output.position = mul(output.position, viewMatrix);
+	output.position = mul(output.position, projectionMatrix);
+	output.tex = tex;
+	return output;
+}
+		)""";
 
-	const char* defaultPixelShaderSrc =
-		"Texture2D shaderTexture;\n"
-		"SamplerState sampleType;\n"
-		"struct VOut\n"
-		"{\n"
-		"	float4 position : SV_POSITION;\n"
-		"	float2 tex : TEXCOORD0;\n"
-		"};\n"
-		"\n"
-		"float4 PShader(VOut input) : SV_TARGET\n"
-		"{\n"
-		"	 return shaderTexture.Sample(sampleType, input.tex);\n"
-		"}\n";
+	const char* defaultPixelShaderSrc = R"""(
+Texture2D shaderTexture;
+SamplerState sampleType;
+struct VOut
+{
+	float4 position : SV_POSITION;
+	float2 tex : TEXCOORD0;
+};
 
-	const char* defaultPixelShaderWithMouseDotSrc =
-		"Texture2D shaderTexture;\n"
-		"SamplerState sampleType;\n"
-		"static const float PI = 3.14159265;\n"
-		"cbuffer mousePos\n"
-		"{\n"
-		"	float2 radius;\n"
-		"	float2 coord;\n"
-		"};\n"
-		"struct VOut\n"
-		"{\n"
-		"	float4 position : SV_POSITION;\n"
-		"	float2 tex : TEXCOORD0;\n"
-		"};\n"
-		"\n"
-		"float4 PShader(VOut input) : SV_TARGET\n"
-		"{\n"
-		"    float2 diff = input.tex - coord;\n"
-		"    float distance = length(diff);\n"
-		"	 float4 pixel = float4(0.0, 0.0, 0.0, 0.0);\n"
-		"    if (distance <= radius.x)\n"
-		"    {\n"
-		"	     pixel = float4(1.0, 0.0, 0.0, 1.0);\n"
-		"    }\n"
-		"    else\n"
-		"    {\n"
-		"	     pixel = shaderTexture.Sample(sampleType, input.tex);\n"
-		"    }\n"
-		"	 return pixel;\n"
-		"}\n";
+float4 PShader(VOut input) : SV_TARGET
+{
+	return shaderTexture.Sample(sampleType, input.tex);
+}
+		)""";
+
+	const char* defaultPixelShaderWithMouseDotSrc = R"""(
+Texture2D shaderTexture;
+SamplerState sampleType;
+static const float PI = 3.14159265;
+cbuffer mousePos
+{
+	float2 radius;
+	float2 coord;
+};
+struct VOut
+{
+	float4 position : SV_POSITION;
+	float2 tex : TEXCOORD0;
+};
+
+float4 PShader(VOut input) : SV_TARGET
+{
+	float2 diff = input.tex - coord;
+	float distance = length(diff);
+	float4 pixel = float4(0.0, 0.0, 0.0, 0.0);
+	if (distance <= radius.x)
+	{
+		pixel = float4(1.0, 0.0, 0.0, 1.0);
+	}
+	else
+	{
+		pixel = shaderTexture.Sample(sampleType, input.tex);
+	}
+	return pixel;
+}
+	)""";
 
 	// load and compile the two shaders
 	result = D3DCompile(defaultVertexShaderWithProjectionSrc, strlen(defaultVertexShaderWithProjectionSrc), 0, 0, 0, "VShader", "vs_4_0", 0, 0, &VS, &errorMessage);
@@ -492,6 +496,12 @@ void BasicRenderer::SetMousePosition(HWND hwnd, int width, int height)
 	}
 }
 
+void BasicRenderer::UpdateZScale(float z, float scale)
+{
+	uiZ = z;
+	uiScale = scale;
+}
+
 void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rtv, ID3D11ShaderResourceView* srv, DirectX::XMMATRIX projectionMatrix, DirectX::XMMATRIX viewMatrix, bool isOrthog)
 {
 	UINT Stride = sizeof(VertexType);
@@ -537,9 +547,12 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 	}
 	else
 	{
+		DirectX::XMMATRIX uiScaleMatrix = DirectX::XMMatrixScaling(uiScale, uiScale, 1.0f);
+		DirectX::XMMATRIX uiZMatrix = DirectX::XMMatrixTranslation(0.0f, 0.0f, (uiZ / 100.0f));
+
 		DirectX::XMMATRIX scaleMatrix = DirectX::XMMatrixScaling(0.125f * aspect, 0.125f, 0.125f);
 		DirectX::XMMATRIX moveMatrix = DirectX::XMMatrixTranslation(0, -1.0f, -8.0f);
-		DirectX::XMMATRIX worldMatrix = moveMatrix * scaleMatrix;
+		DirectX::XMMATRIX worldMatrix = moveMatrix * scaleMatrix;// *uiZMatrix* uiScaleMatrix;
 		worldMatrix = DirectX::XMMatrixTranspose(worldMatrix);
 
 		matrixBuffer.world = worldMatrix;

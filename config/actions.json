@@ -1,0 +1,246 @@
+{
+   "action_sets" : [
+      {
+        "name" : "/actions/game",
+        "usage" : "leftright"
+      }
+   ],
+   "actions" : [
+      {
+        "name" : "/actions/game/in/movement",
+        "requirement" : "mandatory",
+        "type" : "vector2"
+      },
+      {
+        "name" : "/actions/game/in/rotation",
+        "requirement" : "mandatory",
+        "type" : "vector2"
+      },
+      {
+        "name" : "/actions/game/in/lefthand",
+		"requirement" : "mandatory",
+        "type" : "pose"
+      },
+      {
+        "name" : "/actions/game/in/righthand",
+		"requirement" : "mandatory",
+        "type" : "pose"
+      },
+      {
+        "name" : "/actions/game/in/leftclick",
+        "requirement" : "mandatory",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/rightclick",
+        "requirement" : "mandatory",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/recenter",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/shift",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/alt",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/control",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/escape",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/scrollup",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/scrolldown",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button01",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button02",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button03",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button04",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button05",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button06",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button07",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button08",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button09",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button10",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button11",
+        "type" : "boolean"
+      },
+	  {
+        "name" : "/actions/game/in/button12",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_button_y",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_button_x",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_button_a",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_button_b",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_left_trigger",
+        "type" : "vector1"
+      },
+      {
+        "name" : "/actions/game/in/xbox_left_bumper",
+        "type" : "vector1"
+      },
+      {
+        "name" : "/actions/game/in/xbox_left_stick_click",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_right_trigger",
+        "type" : "vector1"
+      },
+      {
+        "name" : "/actions/game/in/xbox_right_bumper",
+        "type" : "vector1"
+      },
+      {
+        "name" : "/actions/game/in/xbox_right_stick_click",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_pad_up",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_pad_down",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_pad_left",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_pad_right",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_start",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/xbox_pad_select",
+        "type" : "boolean"
+      }
+   ],
+   "default_bindings" : [
+	{
+        "binding_url" : "binding_vive.json",
+        "controller_type" : "vive_controller"
+	},
+	{
+        "binding_url" : "binding_knuckles.json",
+        "controller_type" : "knuckles"
+	}
+   ],
+   "localization" : [
+      {
+        "/actions/game" : "InGame",
+        "/actions/game/in/movement" : "Movement",
+        "/actions/game/in/rotation" : "Rotate",
+        "/actions/game/in/lefthand" : "Left Hand",
+		"/actions/game/in/righthand" : "Right Hand",
+        "/actions/game/in/leftclick" : "Left Click",
+        "/actions/game/in/rightclick" : "Right Click",
+
+        "/actions/game/in/recenter" : "Recenter",
+        "/actions/game/in/shift" : "Shift",
+        "/actions/game/in/alt" : "Alt",
+        "/actions/game/in/control" : "Control",
+        "/actions/game/in/escape" : "Escape",
+        "/actions/game/in/scrollup" : "ScrollUp",
+        "/actions/game/in/scrolldown" : "ScrollDown",
+		"/actions/game/in/button01" : "F1",
+		"/actions/game/in/button02" : "F2",
+		"/actions/game/in/button03" : "F3",
+		"/actions/game/in/button04" : "F4",
+		"/actions/game/in/button05" : "F5",
+		"/actions/game/in/button06" : "F6",
+		"/actions/game/in/button07" : "F7",
+		"/actions/game/in/button08" : "F8",
+		"/actions/game/in/button09" : "F9",
+		"/actions/game/in/button10" : "F10",
+		"/actions/game/in/button11" : "F11",
+		"/actions/game/in/button12" : "F12",
+
+		"/actions/game/in/xbox_button_y" : "XBox Button Y",
+		"/actions/game/in/xbox_button_x" : "XBox Button X",
+		"/actions/game/in/xbox_button_a" : "XBox Button A",
+		"/actions/game/in/xbox_button_b" : "XBox Button B",
+		"/actions/game/in/xbox_left_trigger" : "XBox Left Trigger",
+		"/actions/game/in/xbox_left_bumper" : "XBox Left Bumper",
+		"/actions/game/in/xbox_left_stick_click" : "XBox Left Stick (Click)",
+		"/actions/game/in/xbox_right_trigger" : "XBox Right Trigger",
+		"/actions/game/in/xbox_right_bumper" : "XBox Right Bumper",
+		"/actions/game/in/xbox_right_stick_click" : "XBox Right Stick (Click)",
+
+        "/actions/game/in/xbox_start" : "XBox Start",
+		"/actions/game/in/xbox_select" : "XBox Select",
+        "language_tag" : "en"
+      }
+   ]
+}
+
+
+
+
+
+
+
+
+
+

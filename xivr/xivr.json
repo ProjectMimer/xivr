@@ -1,7 +1,7 @@
 {
-  "Author": "StreetRat",
-  "Name": "XIVR",
-  "Punchline": "Mod to allow vr",
+  "Author": "Marulu, StreetRat",
+  "Name": "XIVR - VR Mod",
+  "Punchline": "Mod to allow VR",
   "Description": "Mod to allow vr. /xivr on /xivr off",
   "InternalName": "xivr",
   "ApplicableVersion": "any",

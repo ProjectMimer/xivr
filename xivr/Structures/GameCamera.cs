@@ -22,10 +22,10 @@ namespace xivr.Structures
         [FieldOffset(0x11C)] public float AddedFoV; // 0
         [FieldOffset(0x120)] public float CurrentHRotation; // -pi -> pi, default is pi
         [FieldOffset(0x124)] public float CurrentVRotation; // -0.349066
-        [FieldOffset(0x124)] public float HRotationThisFrame1;
-        [FieldOffset(0x124)] public float VRotationThisFrame1;
-        [FieldOffset(0x124)] public float HRotationThisFrame2;
-        [FieldOffset(0x124)] public float VRotationThisFrame2;
+        [FieldOffset(0x128)] public float HRotationThisFrame1;
+        [FieldOffset(0x12C)] public float VRotationThisFrame1;
+        [FieldOffset(0x130)] public float HRotationThisFrame2;
+        [FieldOffset(0x134)] public float VRotationThisFrame2;
         //[FieldOffset(0x138)] public float HRotationDelta;
         [FieldOffset(0x138)] public float MinVRotation; // -1.483530, should be -+pi/2 for straight down/up but camera breaks so use -+1.569
         [FieldOffset(0x13C)] public float MaxVRotation; // 0.785398 (pi/4)

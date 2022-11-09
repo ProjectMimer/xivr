@@ -71,7 +71,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)\xivr\bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)$(ProjectName)\bin\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -133,7 +133,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>D:\Projects\openvr-master\headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)openvr\headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -141,28 +141,38 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>D:\Projects\openvr-master\lib\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)openvr\lib\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>d3dcompiler.lib;d3d11.lib;dxgi.lib;openvr_api.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y $(ProjectDir)openvr_api.dll  $(OutDir)</Command>
+      <Command>xcopy /y $(SolutionDir)openvr\bin\win64\openvr_api.dll $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\
+xcopy /y $(OutDir)xivr_main.dll $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\
+xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\config\
+</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BasicRenderer.h" />
+    <ClInclude Include="clsController.h" />
     <ClInclude Include="ffxivDevice.h" />
     <ClInclude Include="ffxivSwapChain.h" />
     <ClInclude Include="ffxivTexture.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="stBasicTexture.h" />
     <ClInclude Include="simpleVR.h" />
+    <ClInclude Include="stButtonList.h" />
     <ClInclude Include="stCommon.h" />
     <ClInclude Include="stDX11.h" />
+    <ClInclude Include="SteamVRInput.h" />
+    <ClInclude Include="stsdkTypes.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BasicRenderer.cpp" />
+    <ClCompile Include="clsController.cpp" />
+    <ClCompile Include="clsControllerSteamVR.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="simpleVR.cpp" />
+    <ClCompile Include="SteamVRInput.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

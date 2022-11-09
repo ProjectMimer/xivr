@@ -48,14 +48,14 @@ namespace xivr
                 }
 
                 bool horizontalLock = xivr.Configuration.horizontalLock;
-                if (ImGui.Checkbox("Lock to stop horizontal rotation", ref horizontalLock))
+                if (ImGui.Checkbox("Horizontal Snap Turning", ref horizontalLock))
                 {
                     xivr.Configuration.horizontalLock = horizontalLock;
                     xivr.Configuration.Save();
                 }
 
                 bool verticalLock = xivr.Configuration.verticalLock;
-                if (ImGui.Checkbox("Lock to stop vertical rotation", ref verticalLock))
+                if (ImGui.Checkbox("Vertical Snap Turning", ref verticalLock))
                 {
                     xivr.Configuration.verticalLock = verticalLock;
                     xivr.Configuration.Save();

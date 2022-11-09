@@ -16,6 +16,13 @@ namespace xivr
         public bool verticalLock { get; set; } = false;
         public bool horizonLock { get; set; } = false;
         public bool runRecenter { get; set; } = false;
+        public float offsetAmountX { get; set; } = 0.0f;
+        public float offsetAmountY { get; set; } = 0.0f;
+        public float snapRotateAmountX { get; set; } = 45.0f;
+        public float snapRotateAmountY { get; set; } = 15.0f;
+        public float uiOffsetZ { get; set; } = 0.0f;
+        public float uiOffsetScale { get; set; } = 1.0f;
+
 
         [NonSerialized]
         private DalamudPluginInterface? pluginInterface;

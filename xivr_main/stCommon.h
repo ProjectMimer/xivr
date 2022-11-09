@@ -11,7 +11,9 @@ enum poseType
 {
 	Projection = 0,
 	EyeOffset = 1,
-	hmdPosition = 10
+	hmdPosition = 10,
+	LeftHand = 20,
+	RightHand = 30,
 };
 
 struct stScreenLayout

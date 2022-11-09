@@ -1,6 +1,7 @@
 #pragma once
 #include "simpleVR.h"
 
+
 simpleVR::simpleVR()
 {
 	InitalizeVR();
@@ -32,6 +33,10 @@ void simpleVR::InitalizeVR()
 	memcpy(&hmdMatrix, identMatrix._m, sizeof(uMatrix));
 	memcpy(&controllerLeftMatrix, identMatrix._m, sizeof(uMatrix));
 	memcpy(&controllerRightMatrix, identMatrix._m, sizeof(uMatrix));
+
+	controllerID = ControllerID::NA;
+	controller = clsController();
+	
 }
 
 
@@ -104,6 +109,8 @@ bool simpleVR::StartVR()
 		openVRSession->GetRecommendedRenderTargetSize(&rWidth, &rHeight);
 		bufferSize.x = rWidth;
 		bufferSize.y = rHeight;
+
+		controller.Set(sdkType::openvr, ControllerList::openvrVive);
 
 		_isConnected = true;
 	}
@@ -188,7 +195,7 @@ void simpleVR::SetFramePose()
 							vr::VRControllerState_t cState;
 							ZeroMemory(&cState, sizeof(vr::VRControllerState_t));
 							if (openVRSession->GetControllerState(i, &cState, sizeof(vr::VRControllerState_t))) {
-								//--controller.SetTracking(controllerRole, cState);
+								controller.SetTracking(controllerRole, cState);
 							}
 
 						}
@@ -201,7 +208,7 @@ void simpleVR::SetFramePose()
 							vr::VRControllerState_t cState;
 							ZeroMemory(&cState, sizeof(vr::VRControllerState_t));
 							if (openVRSession->GetControllerState(i, &cState, sizeof(vr::VRControllerState_t))) {
-								//--controller.SetTracking(controllerRole, cState);
+								controller.SetTracking(controllerRole, cState);
 							}
 						}
 					}
@@ -257,6 +264,8 @@ void simpleVR::SetFramePose()
 			};
 			memcpy(controllerRightMatrix.matrix, rcMatrix, sizeof(float) * 4 * 4);
 		}
+
+		controller.SetTracking();
 	}
 }
 
@@ -272,6 +281,12 @@ uMatrix simpleVR::GetFramePose(poseType pose_type, int eye)
 		break;
 	case poseType::hmdPosition:
 		return hmdMatrix;
+		break;
+	case poseType::LeftHand:
+		return controllerLeftMatrix;
+		break;
+	case poseType::RightHand:
+		return controllerRightMatrix;
 		break;
 	default:
 		return identMatrix;
@@ -306,5 +321,66 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye)
 		if (error) {
 			int a = 1;
 		}
+	}
+}
+
+
+bool simpleVR::GetButtonHasChanged(ButtonList buttonID, ControllerType controllerType)
+{
+	if (_isConnected) {
+		return controller.HasChanged(buttonID, controllerType);
+	}
+	else {
+		return false;
+	}
+}
+
+bool simpleVR::GetButtonIsTouched(ButtonList buttonID, ControllerType controllerType)
+{
+	if (_isConnected) {
+		return controller.IsTouched(buttonID, controllerType);
+	}
+	else {
+		return false;
+	}
+}
+
+bool simpleVR::GetButtonIsPressed(ButtonList buttonID, ControllerType controllerType)
+{
+	if (_isConnected) {
+		return controller.IsPressed(buttonID, controllerType);
+	}
+	else {
+		return false;
+	}
+}
+
+bool simpleVR::GetButtonIsDownFrame(ButtonList buttonID, ControllerType controllerType)
+{
+	if (_isConnected) {
+		return controller.IsDownFrame(buttonID, controllerType);
+	}
+	else {
+		return false;
+	}
+}
+
+bool simpleVR::GetButtonIsUpFrame(ButtonList buttonID, ControllerType controllerType)
+{
+	if (_isConnected) {
+		return controller.IsUpFrame(buttonID, controllerType);
+	}
+	else {
+		return false;
+	}
+}
+
+float simpleVR::GetButtonValue(ButtonList buttonID, ControllerType controllerType)
+{
+	if (_isConnected) {
+		return controller.GetValue(buttonID, controllerType);
+	}
+	else {
+		return 0.0f;
 	}
 }

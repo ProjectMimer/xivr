@@ -51,6 +51,9 @@ class BasicRenderer
 	bool disableBlend = false;
 	int blendIndex = 0;
 
+	float uiZ = 0;
+	float uiScale = 0;
+
 	bool CreateShaders();
 	void DestroyShaders();
 	bool CreateBuffers();
@@ -67,6 +70,7 @@ public:
 	void SetClearColor(float color[]);
 	void SetBlendIndex(int index);
 	void SetMousePosition(HWND hwnd, int width, int height);
+	void UpdateZScale(float z, float scale);
 	void DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rtv, ID3D11ShaderResourceView* srv, DirectX::XMMATRIX projectionMatrix, DirectX::XMMATRIX viewMatrix, bool isOrthog = false);
 	void Release();
 };
