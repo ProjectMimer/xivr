@@ -552,7 +552,7 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 
 		DirectX::XMMATRIX scaleMatrix = DirectX::XMMatrixScaling(0.125f * aspect, 0.125f, 0.125f);
 		DirectX::XMMATRIX moveMatrix = DirectX::XMMatrixTranslation(0, -1.0f, -8.0f);
-		DirectX::XMMATRIX worldMatrix = moveMatrix * scaleMatrix;// *uiZMatrix* uiScaleMatrix;
+		DirectX::XMMATRIX worldMatrix = moveMatrix * scaleMatrix * uiZMatrix * uiScaleMatrix;
 		worldMatrix = DirectX::XMMatrixTranspose(worldMatrix);
 
 		matrixBuffer.world = worldMatrix;
