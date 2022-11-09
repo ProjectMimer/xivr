@@ -28,6 +28,7 @@ namespace xivr
 
         private readonly bool pluginReady = false;
         private bool isEnabled = false;
+        private UInt64 counter = 0;
 
         public unsafe xivr(DalamudPluginInterface pluginInterface, TitleScreenMenu titleScreenMenu)
         {
@@ -55,39 +56,32 @@ namespace xivr
                     }
 
                     Configuration.isEnabled = false;
-
-                    PluginLog.LogError($"isEnabled: {Configuration.isEnabled}");
-                    PluginLog.LogError($"isAutoEnabled: {Configuration.isAutoEnabled}");
-                    PluginLog.LogError($"forceFloatingScreen: {Configuration.forceFloatingScreen}");
-                    PluginLog.LogError($"forceFloatingInCutscene: {Configuration.forceFloatingInCutscene}");
-                    PluginLog.LogError($"horizontalLock: {Configuration.horizontalLock}");
-                    PluginLog.LogError($"verticalLock: {Configuration.verticalLock}");
-                    PluginLog.LogError($"horizonLock: {Configuration.horizonLock}");
-                    PluginLog.LogError($"offsetAmountX: {Configuration.offsetAmountX}");
-                    PluginLog.LogError($"offsetAmountY: {Configuration.offsetAmountY}");
-                    PluginLog.LogError($"snapRotateAmountX: {Configuration.snapRotateAmountX}");
-                    PluginLog.LogError($"snapRotateAmount:Y {Configuration.snapRotateAmountY}");
-                    PluginLog.LogError($"uiOffsetZ: {Configuration.uiOffsetZ}");
-                    PluginLog.LogError($"uiOffsetScale: {Configuration.uiOffsetScale}");
-
+                    /*
+                    PluginLog.Log($"isEnabled: {Configuration.isEnabled}");
+                    PluginLog.Log($"isAutoEnabled: {Configuration.isAutoEnabled}");
+                    PluginLog.Log($"forceFloatingScreen: {Configuration.forceFloatingScreen}");
+                    PluginLog.Log($"forceFloatingInCutscene: {Configuration.forceFloatingInCutscene}");
+                    PluginLog.Log($"horizontalLock: {Configuration.horizontalLock}");
+                    PluginLog.Log($"verticalLock: {Configuration.verticalLock}");
+                    PluginLog.Log($"horizonLock: {Configuration.horizonLock}");
+                    PluginLog.Log($"offsetAmountX: {Configuration.offsetAmountX}");
+                    PluginLog.Log($"offsetAmountY: {Configuration.offsetAmountY}");
+                    PluginLog.Log($"snapRotateAmountX: {Configuration.snapRotateAmountX}");
+                    PluginLog.Log($"snapRotateAmount:Y {Configuration.snapRotateAmountY}");
+                    PluginLog.Log($"uiOffsetZ: {Configuration.uiOffsetZ}");
+                    PluginLog.Log($"uiOffsetScale: {Configuration.uiOffsetScale}");
+                    */
                     try
                     {
-                        PluginLog.LogError($"#-- Initialize --#");
-                        xivr_hooks.Initialize();
-                        PluginLog.LogError($"#-- SetOffsetAmount --#");
-                        xivr_hooks.SetOffsetAmount(Configuration.offsetAmountX, Configuration.offsetAmountY);
-                        PluginLog.LogError($"#-- SetSnapAmount --#");
-                        xivr_hooks.SetSnapAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
-                        PluginLog.LogError($"#-- SetZScale --#");
-                        xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
-                        PluginLog.LogError($"#-- Initialize Done --#");
-
                         Process[] pname = Process.GetProcessesByName("vrserver");
                         PluginLog.LogError($"ProcessName {pname.Length}");
                         if (pname.Length > 0 && Configuration.isAutoEnabled)
                         {
                             Configuration.isEnabled = true;
                         }
+
+                        xivr_hooks.Initialize();
+
                         pluginReady = true;
                     }
                     catch (Exception e) { PluginLog.LogError($"Failed initalizing vr\n{e}"); }
@@ -225,6 +219,20 @@ namespace xivr
         {
             if (pluginReady)
             {
+                if(counter == 300)
+                {
+                    counter++;
+                    xivr_hooks.SetOffsetAmount(Configuration.offsetAmountX, Configuration.offsetAmountY);
+                    xivr_hooks.SetSnapAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
+                    xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
+                    PluginLog.Log("Setup Complete");
+                } 
+                else
+                {
+                    counter++;
+                }
+                
+
                 bool isCutscene = DalamudApi.Condition[ConditionFlag.OccupiedInCutSceneEvent] || DalamudApi.Condition[ConditionFlag.WatchingCutscene] || DalamudApi.Condition[ConditionFlag.WatchingCutscene78];
                 bool forceFloating = Configuration.forceFloatingScreen || (Configuration.forceFloatingInCutscene && isCutscene);
 
@@ -261,7 +269,8 @@ namespace xivr
 
         public void Dispose()
         {
-            if(pluginReady)
+            counter = 0;
+            if (pluginReady)
                 xivr_hooks.Dispose();
             DalamudApi.TitleScreenMenu.RemoveEntry(xivrMenuEntry);
             DalamudApi.Framework.Update -= Update;

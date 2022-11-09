@@ -132,7 +132,7 @@ namespace xivr
         public static extern void UpdateZScale(float z, float scale);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern bool SetActiveJSON([In, MarshalAs(UnmanagedType.LPStr)] string filePath, int size);
+        public static extern bool SetActiveJSON([In, MarshalAs(UnmanagedType.LPUTF8Str)] string filePath, int size);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UpdateController(UpdateControllerInput controllerCallback);
@@ -256,45 +256,46 @@ namespace xivr
         }
 
 
-        public void Initialize()
+        public bool Initialize()
         {
-            BaseAddress = (UInt64)Process.GetCurrentProcess()?.MainModule?.BaseAddress;
-            PluginLog.Log($"Initialize {BaseAddress:X}");
-
-            renderTargetManagerAddr = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B 05 ?? ?? ?? ?? 49 63 C8");
-            if (renderTargetManagerAddr != 0)
+            if (initalized == false)
             {
-                renderTargetManagerAddr = *(UInt64*)renderTargetManagerAddr;
-                renderTargetManager = (RenderTargetManager*)(*(UInt64*)renderTargetManagerAddr);
+                BaseAddress = (UInt64)Process.GetCurrentProcess()?.MainModule?.BaseAddress;
+                PluginLog.Log($"Initialize {BaseAddress:X}");
+
+                renderTargetManagerAddr = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B 05 ?? ?? ?? ?? 49 63 C8");
+                if (renderTargetManagerAddr != 0)
+                {
+                    renderTargetManagerAddr = *(UInt64*)renderTargetManagerAddr;
+                    renderTargetManager = (RenderTargetManager*)(*(UInt64*)renderTargetManagerAddr);
+                }
+                PluginLog.Log($"renderTargetManager: {*(UInt64*)renderTargetManagerAddr:X} {(*(UInt64*)renderTargetManagerAddr - BaseAddress):X}");
+
+                IntPtr tmpAddress = DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B 05 ?? ?? ?? ?? 83 78 50 00 75 22");
+                PluginLog.Log($"CameraManagerInstance: {*(UInt64*)tmpAddress:X} {(*(UInt64*)tmpAddress - BaseAddress):X}");
+                camInst = (CameraManagerInstance*)(*(UInt64*)tmpAddress);
+
+                SetFunctionHandles();
+                SetInputHandles();
+
+
+                //----
+                // Initalize all sigs
+                //----
+                foreach (KeyValuePair<string, HandleDelegte[]> attrib in functionList)
+                {
+                    attrib.Value[(int)attribFnType.Initalize](false);
+                }
+
+                controllerCallback = (buttonId, analog, digital) =>
+                {
+                    if (inputList.ContainsKey(buttonId))
+                        inputList[buttonId](analog, digital);
+                };
+
+                initalized = true;
             }
-            PluginLog.Log($"renderTargetManager: {*(UInt64*)renderTargetManagerAddr:X} {(*(UInt64*)renderTargetManagerAddr - BaseAddress):X}");
-
-            IntPtr tmpAddress = DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B 05 ?? ?? ?? ?? 83 78 50 00 75 22");
-            PluginLog.Log($"CameraManagerInstance: {*(UInt64*)tmpAddress:X} {(*(UInt64*)tmpAddress - BaseAddress):X}");
-            camInst = (CameraManagerInstance*)(*(UInt64*)tmpAddress);
-
-            SetFunctionHandles();
-            SetInputHandles();
-
-
-            //----
-            // Initalize all sigs
-            //----
-            foreach (KeyValuePair<string, HandleDelegte[]> attrib in functionList)
-            {
-                attrib.Value[(int)attribFnType.Initalize](false);
-            }
-
-
-
-            controllerCallback = (buttonId, analog, digital) =>
-            {
-                if (inputList.ContainsKey(buttonId))
-                    inputList[buttonId](analog, digital);
-            };
-
-
-            initalized = true;
+            return initalized;
         }
 
 
@@ -306,7 +307,8 @@ namespace xivr
                 PluginLog.Log($"VRInit {(IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance():X}");
                 SetDX11((IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance());
 
-                string filePath = DalamudApi.PluginInterface.AssemblyLocation.DirectoryName + "\\config\\actions.json";
+                //string filePath = DalamudApi.PluginInterface.AssemblyLocation.DirectoryName + "\\config\\actions.json";
+                string filePath = Path.Join(DalamudApi.PluginInterface.AssemblyLocation.DirectoryName, "config", "actions.json");
                 if (SetActiveJSON(filePath, filePath.Length) == false)
                 {
                     PluginLog.LogError($"Error loading Json file : {filePath}");
