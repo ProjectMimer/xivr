@@ -2,7 +2,9 @@
   "Author": "Marulu, StreetRat",
   "Name": "XIVR - VR Mod",
   "Punchline": "Mod to allow VR",
-  "Description": "Mod to allow vr. /xivr on /xivr off",
+  "Description": "Mod to allow vr. /xivr on /xivr off
+      Source: https://github.com/ProjectMimer/xivr
+      Chat/FAQ: flat2vr.com",
   "InternalName": "xivr",
   "ApplicableVersion": "any",
   "Tags": [
