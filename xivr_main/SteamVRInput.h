@@ -65,7 +65,7 @@ struct inputController
 
 extern "C"
 {
-	__declspec(dllexport) bool SetActiveJSON(const char* filePath, int size);
+	__declspec(dllexport) bool SetActiveJSON(const char*, int size);
 }
 
 bool setActionHandlesGame(inputController* input);
