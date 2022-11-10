@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<Authors></Authors>
@@ -32,6 +32,22 @@
 	<ItemGroup>
 	  <EmbeddedResource Include="xivr.png" />
 	</ItemGroup>
+
+	<ItemDefinitionGroup>
+		<PreBuildEvent>
+			<Command>
+				bash ../dip17build.sh
+			</Command>
+			<Message>Running dip17 compile</Message>
+		</PreBuildEvent>
+	</ItemDefinitionGroup>
+	
+	<PropertyGroup Condition="'$(PLOGON_PLUGIN_NAME)'=='xivr'">
+		<PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
+		
+		<None Update="xivr_main.dll" CopyToOutputDirectory="PreserveNewest" />
+		<None Update="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
+	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="DalamudPackager" Version="2.1.8" />
