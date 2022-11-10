@@ -57,21 +57,37 @@ Dozens of other small fixes to make the game more comfortable in VR.
 **• List of chat/macro commands •**
 
 `/xivr on` enables VR
+
 `/xivr off` disables VR
+
 `/xivr recenter` recenters the camera
+
 `/xivr screen` renders the game in 2D on a floating screen whenever you need it (sniping minigame, etc)
+
 `/xivr uiz [amount]` sets the distance from the floating screen, where [amount] is a positive or negative value. The default is a value of 0.
+
 `/xivr uiscale [amount]`  sets the sets the size of the floating screen,  where [amount] is a positive or negative value. The default is a value of 1.
+
 `/xivr uireset` resets the distance and size of the floating screen
+
 `/xivr conloc` enables controller locomotion (aka onward locomotion) for first person
+
 `/xivr horizon` makes it so the camera angle is corrected if rotated vertically so the horizon never changes, preventing vr sickness
+
 `/xivr hsnap` enables horizontal snap turning via analogue sticks
+
 `/xivr vsnap` enables vertical snap turning via analogue sticks
+
 `/xivr snapanglex [degrees]` sets the amount of degrees for horizontal snap turning using the analogue stick, where [degrees] is a positive number
+
 `/xivr snapangley [degrees]` sets the amount of degrees for vertical snap turning using the analogue stick, where [degrees] is a positive number
+
 `/xivr rotatex [degrees]` immediate X axis snap turning, where [degrees] is a positive or negative number
+
 `/xivr rotatey [degrees]` immediate Y axis snap turning, where [degrees] is a positive or negative number
+
 `/xivr offsetx [amount]` moves the camera directly along the X axis, where [amount] is a positive or negative value. This can be used for an over-the-shoulder view. 
+
 `/xivr offsety [amount]` moves the camera directly along the Y axis, where [amount] is a positive or negative value. This can be used for an over-the-shoulder view.
 
 **• Planned Updates •**
