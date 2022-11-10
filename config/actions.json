@@ -18,12 +18,12 @@
       },
       {
         "name" : "/actions/game/in/lefthand",
-	"requirement" : "mandatory",
+		"requirement" : "mandatory",
         "type" : "pose"
       },
       {
         "name" : "/actions/game/in/righthand",
-	"requirement" : "mandatory",
+		"requirement" : "mandatory",
         "type" : "pose"
       },
       {
@@ -177,7 +177,7 @@
    ],
    "default_bindings" : [
 	{
-        "binding_url" : "binding_knuckles.json",
+        "binding_url" : "index-marulu-221110.json",
         "controller_type" : "knuckles"
 	}
    ],
@@ -187,7 +187,7 @@
         "/actions/game/in/movement" : "Movement",
         "/actions/game/in/rotation" : "Rotate",
         "/actions/game/in/lefthand" : "Left Hand",
-	"/actions/game/in/righthand" : "Right Hand",
+		"/actions/game/in/righthand" : "Right Hand",
         "/actions/game/in/leftclick" : "Left Click",
         "/actions/game/in/rightclick" : "Right Click",
 
@@ -228,13 +228,3 @@
       }
    ]
 }
-
-
-
-
-
-
-
-
-
-
