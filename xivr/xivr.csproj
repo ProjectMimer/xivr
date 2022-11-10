@@ -44,11 +44,13 @@
 	
 	<PropertyGroup Condition="'$(PLOGON_PLUGIN_NAME)'=='xivr'">
 		<PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
-		
-		<None Update="xivr_main.dll" CopyToOutputDirectory="PreserveNewest" />
-		<None Update="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
 	</PropertyGroup>
 
+	<ItemGroup Condition="'$(PLOGON_PLUGIN_NAME)'=='xivr'">
+		<None Update="xivr_main.dll" CopyToOutputDirectory="PreserveNewest" />
+		<None Update="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+	
 	<ItemGroup>
 		<PackageReference Include="DalamudPackager" Version="2.1.8" />
 		<Reference Include="FFXIVClientStructs">
