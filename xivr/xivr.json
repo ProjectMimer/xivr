@@ -2,7 +2,9 @@
   "Author": "Marulu, StreetRat",
   "Name": "XIVR - VR Mod",
   "Punchline": "Mod to allow VR",
-  "Description": "Mod to allow vr. /xivr on /xivr off
+  "Description": "WARNING - SEIZURES If you are prone to epileptic seizures, DO NOT PLAY THIS MOD. Your desktop screen will flicker rapidly while VR is active. (The in-headset view won't flicker.)
+      ** Requires SteamVR **
+      Mod to allow vr. /xivr | /xivr on | /xivr off
       Source: https://github.com/ProjectMimer/xivr
       Chat/FAQ: flat2vr.com",
   "InternalName": "xivr",
