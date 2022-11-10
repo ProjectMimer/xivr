@@ -14,11 +14,11 @@ Notes:
 • Currently, 3D is based on alternate eye rendering (AER). To hit a constant 90 FPS, **a strong GPU (RTX 3070+) is recommended**. For the optimal viewing experience, **it is highly recommended to set the game to windowed mode with the same per-eye resolution as your headset**. You can check the per-eye resolution in your SteamVR settings. Should the resolution surpass the limits of your display, it can be manually set by changing the `ScreenWidth` and `ScreenHeight` settings in FFXIV.cfg, normally located in the `Documents/My Games/Final Fantasy XIV - A Realm Reborn` folder.
 
 **• Install Instructions •**
-1. Download and install XIVLauncher https://github.com/goatcorp/FFXIVQuickLauncher
-2. Enter "/xlplugins" into chat
-3. On the left side, select "All Plugins" and search "XIVR" in the search bar. 
-4. Install the "XIVR" plugin from the list by selecting Install.
-5. Enjoy!
+1. Download and install XIVLauncher from https://github.com/goatcorp/FFXIVQuickLauncher
+2. On the start screen hover over the red dalamud icon on the left hand side and click on settings
+3. Navigate to the Experimental tab and enable "Get plugin testing builds", save the settings and close the window
+4. Using the same method as 2. open the installer and select "All Plugins" on the left side and search for "xivr" in the search box
+5. Install the "XIVR" plugin from the list by selecting Install.
 
 **• Features •**
 **3D rendering & 6DOF Head Tracking:** 
@@ -101,7 +101,7 @@ If enabled, the head of your player character will be hidden, and the camera wil
 **Automatic Resolution Adjustment:** 
 Applies the resolution of your headset to FF14's windowed mode resolution, even if it's beyond the limits of what your display supports.
 
-** Additional Safety Features:** 
+**Additional Safety Features:** 
 Vignette etc.
 
 **• Recruiting Developers for... •**
