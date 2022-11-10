@@ -33,20 +33,11 @@
 	  <EmbeddedResource Include="xivr.png" />
 	</ItemGroup>
 
-	<ItemDefinitionGroup>
-		<PreBuildEvent>
-			<Command>
-				bash ../dip17build.sh
-			</Command>
-			<Message>Running dip17 compile</Message>
-		</PreBuildEvent>
-	</ItemDefinitionGroup>
+	<Target Name="CompileNativesDip17" BeforeTargets="PrepareForBuild" Condition="'$(IsPlogonBuild)'=='True'">
+		<Exec Command="bash ../dip17build.sh" />
+	</Target>
 	
-	<PropertyGroup Condition="'$(PLOGON_PLUGIN_NAME)'=='xivr'">
-		<PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
-	</PropertyGroup>
-
-	<ItemGroup Condition="'$(PLOGON_PLUGIN_NAME)'=='xivr'">
+	<ItemGroup Condition="'$(IsPlogonBuild)'=='True'">
 		<None Update="xivr_main.dll" CopyToOutputDirectory="PreserveNewest" />
 		<None Update="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
