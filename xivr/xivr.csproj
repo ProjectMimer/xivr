@@ -34,7 +34,7 @@
 	</ItemGroup>
 
 	<Target Name="CompileNativesDip17" BeforeTargets="PrepareForBuild" Condition="'$(IsPlogonBuild)'=='True'">
-		<Exec Command="bash ../dip17build.sh" />
+		<Exec Command="cd .. &amp;&amp; bash dip17build.sh" />
 	</Target>
 	
 	<ItemGroup Condition="'$(IsPlogonBuild)'=='True'">
