@@ -56,6 +56,8 @@ Dozens of other small fixes to make the game more comfortable in VR.
 
 **• List of chat/macro commands •**
 
+`/xivr` opens the settings menu
+
 `/xivr on` enables VR
 
 `/xivr off` disables VR
