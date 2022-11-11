@@ -49,14 +49,16 @@
 		</Content>
 		
 		<None Remove="../config/actions.json" />
-		<Content Include="../config/actions.json">
+		<ContentWithTargetPath Include="../config/actions.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
+			<TargetPath>config/actions.json</TargetPath>
+		</ContentWithTargetPath>
 
 		<None Remove="../config/index-marulu-221110.json" />
-		<Content Include="../config/index-marulu-221110.json">
+		<ContentWithTargetPath Include="../config/index-marulu-221110.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
+			<TargetPath>config/index-marulu-221110.json</TargetPath>
+		</ContentWithTargetPath>
 	</ItemGroup>
 	
 	<ItemGroup>
