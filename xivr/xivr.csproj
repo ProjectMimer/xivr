@@ -38,8 +38,15 @@
 	</Target>
 	
 	<ItemGroup Condition="'$(IsPlogonBuild)'=='True'">
-		<None Update="xivr_main.dll" CopyToOutputDirectory="PreserveNewest" />
-		<None Update="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
+		<None Remove="xivr_main.dll" />
+		<Content Include="xivr_main.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+
+		<None Remove="openvr_api.dll" />
+		<Content Include="openvr_api.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 	
 	<ItemGroup>
