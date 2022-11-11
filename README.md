@@ -113,6 +113,7 @@ Vignette etc.
 **Shader-based 3D:** Currently, we use alternate eye rendering (AER) to support 3D. This makes it hard to hit a stable 90 FPS in VR, as the real framerate of the game is cut in half to accommodate rendering for each eye. By modifying the shaders to output in 3D, we could significantly speed up the game in VR and make it run on weaker hardware.
 
 **• Known Issues •**
+
 **Flickering Shadows:** 
 In certain scenes, shadows might flicker at the very edge of the view.
 
@@ -139,3 +140,6 @@ This issue has been reported by a tester using the Valve Index.
 
 **VR controllers only work if a controller is detected**
 Motion controllers only work if the game detects a controller of any kind, this can be a Xbox controller or even a racing steering wheel.
+
+**UI is not displaying in the headset**
+This can randomly occur when starting VR mode, in this case please use `/xivr uireset`
