@@ -4,11 +4,12 @@ set -e
 
 cd xivr_main
 
-mkdir /needs/openvr_local
-7za x -y -o/needs/openvr_local -tzip /needs/openvr.zip
+mkdir /scratch
+mkdir /scratch/openvr_local
+7za x -y -o/scratch/openvr_local -tzip /needs/openvr.zip
 
 OPENVR_VERSION="1.23.7"
-OPENVR_LOCAL="/needs/openvr_local/openvr-$OPENVR_VERSION"
+OPENVR_LOCAL="/scratch/openvr_local/openvr-$OPENVR_VERSION"
 LINKER_OBJS=""
 
 compile () {
