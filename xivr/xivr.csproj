@@ -47,6 +47,16 @@
 		<Content Include="openvr_api.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
+		
+		<None Remove="../config/actions.json" />
+		<Content Include="../config/actions.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+
+		<None Remove="../config/index-marulu-221110.json" />
+		<Content Include="../config/index-marulu-221110.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 	
 	<ItemGroup>
