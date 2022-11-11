@@ -4,6 +4,9 @@ set -e
 
 cd xivr_main
 
+mkdir x64
+mkdir x64/Release
+
 mkdir /scratch
 mkdir /scratch/openvr_local
 7za x -y -o/scratch/openvr_local -tzip /needs/openvr.zip
