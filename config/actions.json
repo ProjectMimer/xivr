@@ -18,12 +18,10 @@
       },
       {
         "name" : "/actions/game/in/lefthand",
-		"requirement" : "mandatory",
         "type" : "pose"
       },
       {
         "name" : "/actions/game/in/righthand",
-		"requirement" : "mandatory",
         "type" : "pose"
       },
       {
