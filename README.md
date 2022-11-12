@@ -13,7 +13,7 @@ Notes:
 
 • Currently, 3D is based on alternate eye rendering (AER). To hit a constant 90 FPS, **a strong GPU (RTX 3070+) is recommended**. For the optimal viewing experience, **it is highly recommended to set the game to windowed mode with the same per-eye resolution as your headset**. You can check the per-eye resolution in your SteamVR settings. Should the resolution surpass the limits of your display, it can be manually set by changing the `ScreenWidth` and `ScreenHeight` settings in FFXIV.cfg, normally located in the `Documents/My Games/Final Fantasy XIV - A Realm Reborn` folder.
 
-**• Install Instructions •**　(images can be found below)
+**• Install Instructions •**
 1. Download and install XIVLauncher from https://github.com/goatcorp/FFXIVQuickLauncher
 2. On the start screen hover over the red dalamud icon on the left hand side and click on settings
 3. Navigate to the Experimental tab and enable "Get plugin testing builds", and under Custom Plugin Repositories enter the following URL https://raw.githubusercontent.com/ProjectMimer/DalamudRepo/main/plugin.json click the + symbol and save and close
