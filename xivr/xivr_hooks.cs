@@ -116,6 +116,9 @@ namespace xivr
         public static extern void UpdateZScale(float z, float scale);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void SwapEyesUI(bool swapEyesUI);
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern bool SetActiveJSON([In, MarshalAs(UnmanagedType.LPUTF8Str)] string filePath, int size);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -136,6 +139,9 @@ namespace xivr
         private const int FLAG_INVIS = (1 << 1) | (1 << 11);
         private const byte NamePlateCount = 50;
         private int curEye = 0;
+        private int[] swapEyes = { 1, 0 };
+        private bool doSwapEye = false;
+        private bool motioncontrol = true;
         private UInt64 BaseAddress = 0;
         private bool hooksSet = false;
         private bool initalized = false;
@@ -464,7 +470,22 @@ namespace xivr
             doLocomotion = conloc;
         }
 
-        
+        public void DoSwapEyes(bool sync)
+        {
+            doSwapEye = sync;
+        }
+
+        public void DoSwapEyesUI(bool sync)
+        {
+            PluginLog.Log($"Swapping Eyes {sync}");
+            SwapEyesUI(sync);
+        }
+
+        public void ToggleMotionControls(bool status)
+        {
+            motioncontrol = status;
+        }
+
         public void Draw()
         {
 
@@ -929,8 +950,10 @@ namespace xivr
                 if (doLocomotion == false || gameMode == 1)
                     revOnward = Matrix4x4.Identity;
 
-                
-                hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
+                if(doSwapEye)
+                    hmdMatrix = hmdMatrix * eyeOffsetMatrix[swapEyes[curEye]];
+                else
+                    hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
                 SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
                 gameViewMatrix = gameViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
                 SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, gameViewMatrix);
@@ -1036,8 +1059,16 @@ namespace xivr
             float* retVal = MakeProjectionMatrix2Hook.Original(a, b, c, d, e);
             if (enableVR && enableFloatingHUD && overrideMatrix && forceFloatingScreen == false)
             {
-                SafeMemory.Read<float>((IntPtr)(a + 0x38), out gameProjectionMatrix[curEye].M43);
-                SafeMemory.Write<Matrix4x4>((IntPtr)retVal, gameProjectionMatrix[curEye]);
+                if(doSwapEye)
+                {
+                    SafeMemory.Read<float>((IntPtr)(a + 0x38), out gameProjectionMatrix[swapEyes[curEye]].M43);
+                    SafeMemory.Write<Matrix4x4>((IntPtr)retVal, gameProjectionMatrix[swapEyes[curEye]]);
+                }
+                else
+                {
+                    SafeMemory.Read<float>((IntPtr)(a + 0x38), out gameProjectionMatrix[curEye].M43);
+                    SafeMemory.Write<Matrix4x4>((IntPtr)retVal, gameProjectionMatrix[curEye]);
+                }
             }
             return retVal;
         }
@@ -1313,53 +1344,53 @@ namespace xivr
             UInt64 controllerAddress = controllerBase + 0x30 + ((controllerIndex * 0x1E6) * 4);
             XBoxButtonOffsets* offsets = (XBoxButtonOffsets*)((controllerIndex * 0x798) + controllerBase);
 
-            if (xboxStatus.dpad_up.active)
+            if (xboxStatus.dpad_up.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->dpad_up * 4)) = xboxStatus.dpad_up.value;
-            if (xboxStatus.dpad_down.active)
+            if (xboxStatus.dpad_down.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->dpad_down * 4)) = xboxStatus.dpad_down.value;
-            if (xboxStatus.dpad_left.active)
+            if (xboxStatus.dpad_left.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->dpad_left * 4)) = xboxStatus.dpad_left.value;
-            if (xboxStatus.dpad_right.active)
+            if (xboxStatus.dpad_right.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->dpad_right * 4)) = xboxStatus.dpad_right.value;
-            if (xboxStatus.left_stick_down.active)
+            if (xboxStatus.left_stick_down.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4)) = xboxStatus.left_stick_down.value;
-            if (xboxStatus.left_stick_up.active)
+            if (xboxStatus.left_stick_up.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4)) = xboxStatus.left_stick_up.value;
-            if (xboxStatus.left_stick_left.active)
+            if (xboxStatus.left_stick_left.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4)) = xboxStatus.left_stick_left.value;
-            if (xboxStatus.left_stick_right.active)
+            if (xboxStatus.left_stick_right.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4)) = xboxStatus.left_stick_right.value;
-            if (xboxStatus.right_stick_down.active)
+            if (xboxStatus.right_stick_down.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_down * 4)) = xboxStatus.right_stick_down.value;
-            if (xboxStatus.right_stick_up.active)
+            if (xboxStatus.right_stick_up.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_up * 4)) = xboxStatus.right_stick_up.value;
-            if (xboxStatus.right_stick_left.active)
+            if (xboxStatus.right_stick_left.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_left * 4)) = xboxStatus.right_stick_left.value;
-            if (xboxStatus.right_stick_right.active)
+            if (xboxStatus.right_stick_right.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_right * 4)) = xboxStatus.right_stick_right.value;
-            if (xboxStatus.button_y.active)
+            if (xboxStatus.button_y.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->button_y * 4)) = xboxStatus.button_y.value;
-            if (xboxStatus.button_b.active)
+            if (xboxStatus.button_b.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->button_b * 4)) = xboxStatus.button_b.value;
-            if (xboxStatus.button_a.active)
+            if (xboxStatus.button_a.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->button_a * 4)) = xboxStatus.button_a.value;
-            if (xboxStatus.button_x.active)
+            if (xboxStatus.button_x.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->button_x * 4)) = xboxStatus.button_x.value;
-            if (xboxStatus.left_bumper.active)
+            if (xboxStatus.left_bumper.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4)) = xboxStatus.left_bumper.value;
-            if (xboxStatus.left_trigger.active)
+            if (xboxStatus.left_trigger.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_trigger * 4)) = xboxStatus.left_trigger.value;
-            if (xboxStatus.left_stick_click.active)
+            if (xboxStatus.left_stick_click.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = xboxStatus.left_stick_click.value;
-            if (xboxStatus.right_bumper.active)
+            if (xboxStatus.right_bumper.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_bumper * 4)) = xboxStatus.right_bumper.value;
-            if (xboxStatus.right_trigger.active)
+            if (xboxStatus.right_trigger.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = xboxStatus.right_trigger.value;
-            if (xboxStatus.right_stick_click.active)
+            if (xboxStatus.right_stick_click.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = xboxStatus.right_stick_click.value;
-            if (xboxStatus.start.active)
+            if (xboxStatus.start.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->start * 4)) = xboxStatus.start.value;
-            if (xboxStatus.select.active)
+            if (xboxStatus.select.active && motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->select * 4)) = xboxStatus.select.value;
 
             ControllerInputHook.Original(a, b, c);

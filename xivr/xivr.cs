@@ -219,6 +219,27 @@ namespace xivr
                         xivr_hooks.SetConLoc(Configuration.conloc);
                         break;
                     }
+                case "swapeyes":
+                    {
+                        Configuration.swapEyes = !Configuration.swapEyes;
+                        Configuration.Save();
+                        xivr_hooks.DoSwapEyes(Configuration.swapEyes);
+                        break;
+                    }
+                case "swapeyesui":
+                    {
+                        Configuration.swapEyesUI = !Configuration.swapEyesUI;
+                        Configuration.Save();
+                        xivr_hooks.DoSwapEyesUI(Configuration.swapEyesUI);
+                        break;
+                    }
+                case "motcontoggle":
+                    {
+                        Configuration.motioncontrol = !Configuration.motioncontrol;
+                        Configuration.Save();
+                        xivr_hooks.ToggleMotionControls(Configuration.motioncontrol);
+                        break;
+                    }
             }
         }
 
@@ -233,6 +254,9 @@ namespace xivr
                     xivr_hooks.SetSnapAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
                     xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
                     xivr_hooks.SetConLoc(Configuration.conloc);
+                    xivr_hooks.DoSwapEyes(Configuration.swapEyes);
+                    xivr_hooks.DoSwapEyesUI(Configuration.swapEyesUI);
+                    xivr_hooks.ToggleMotionControls(Configuration.motioncontrol);
                     PluginLog.Log("Setup Complete");
                 } 
                 else if(counter <= 300)
