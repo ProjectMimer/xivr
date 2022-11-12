@@ -21,6 +21,7 @@ Notes:
 5. Install the "XIVR" plugin from the list by selecting Install
 
 **• Features •**
+
 **3D rendering & 6DOF Head Tracking:** 
 3D is based on alternate eye rendering (AER) with an accurate projection matrix. (Including support for headsets without parallel projection, like Pimax.) 
 Headtracking is *completely independent from the in game camera*, and the camera can be operated like usual in both first and third person.
