@@ -21,6 +21,8 @@ D3D11_VIEWPORT viewport;
 bool enabled = false;
 int threadedEye = 0;
 bool logging = false;
+bool doSwapEye = false;
+int swapEyes[] = { 1, 0 };
 
 #include <iostream>
 #include <fstream>
@@ -92,6 +94,7 @@ extern "C"
 	__declspec(dllexport) void RenderFloatingScreen();
 	__declspec(dllexport) void SetTexture();
 	__declspec(dllexport) void UpdateZScale(float z, float scale);
+	__declspec(dllexport) void SwapEyesUI(bool swapEyesUI);
 
 	__declspec(dllexport) void UpdateController(UpdateControllerInput controllerCallback);
 }
@@ -411,10 +414,19 @@ __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD)
 		DirectX::XMMATRIX projectionMatrix;
 		DirectX::XMMATRIX viewMatrix;
 
+		int curEyeView = 0;
+		if (doSwapEye)
+			curEyeView = swapEyes[threadedEye];
+		else
+			curEyeView = threadedEye;
+
+
+		//myfile << "Eye" << threadedEye << " : " << curEyeView << " : " << swapEyes[threadedEye] << std::endl;
+
 		if (enableVR)
 		{
-			projectionMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::Projection, threadedEye)._m);
-			viewMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::EyeOffset, threadedEye)._m) * (DirectX::XMMATRIX)(svr.GetFramePose(poseType::hmdPosition, threadedEye)._m);
+			projectionMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::Projection, curEyeView)._m);
+			viewMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::EyeOffset, curEyeView)._m) * (DirectX::XMMATRIX)(svr.GetFramePose(poseType::hmdPosition, curEyeView)._m);
 			viewMatrix = DirectX::XMMatrixTranspose(viewMatrix);
 			viewMatrix = DirectX::XMMatrixInverse(0, viewMatrix);
 
@@ -438,7 +450,7 @@ __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD)
 		{
 			if (enableFloatingHUD)
 			{
-				uMatrix tProj = svr.GetFramePose(poseType::Projection, threadedEye);
+				uMatrix tProj = svr.GetFramePose(poseType::Projection, curEyeView);
 				tProj._m[2] = 0.0f;
 				projectionMatrix = (DirectX::XMMATRIX)(tProj._m);
 				viewMatrix = DirectX::XMMatrixIdentity();
@@ -508,7 +520,10 @@ __declspec(dllexport) void UpdateZScale(float z, float scale)
 	rend->UpdateZScale(z, scale);
 }
 
-
+__declspec(dllexport) void SwapEyesUI(bool swapEyesUI)
+{
+	doSwapEye = swapEyesUI;
+}
 
 __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCallback)
 {
