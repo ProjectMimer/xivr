@@ -1,14 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<Authors></Authors>
 		<Company></Company>
-		<Version>0.0.0.1</Version>
+		<Version>0.0.0.3</Version>
 		<Description>XIVR.</Description>
 		<Copyright></Copyright>
 		<PackageProjectUrl></PackageProjectUrl>
 	</PropertyGroup>
-	
+
 	<PropertyGroup>
 		<TargetFramework>net6.0-windows</TargetFramework>
 		<Platforms>x64</Platforms>
@@ -26,17 +26,17 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <None Remove="xivr.png" />
+		<None Remove="xivr.png" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <EmbeddedResource Include="xivr.png" />
+		<EmbeddedResource Include="xivr.png" />
 	</ItemGroup>
 
 	<Target Name="CompileNativesDip17" BeforeTargets="PrepareForBuild" Condition="'$(IsPlogonBuild)'=='True'">
 		<Exec Command="cd .. &amp;&amp; bash dip17build.sh" />
 	</Target>
-	
+
 	<ItemGroup Condition="'$(IsPlogonBuild)'=='True'">
 		<None Remove="xivr_main.dll" />
 		<Content Include="xivr_main.dll">
@@ -47,20 +47,18 @@
 		<Content Include="openvr_api.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		
+
 		<None Remove="../config/actions.json" />
-		<ContentWithTargetPath Include="../config/actions.json">
+		<Content Include="../config/actions.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<TargetPath>config/actions.json</TargetPath>
-		</ContentWithTargetPath>
+		</Content>
 
 		<None Remove="../config/index-marulu-221110.json" />
-		<ContentWithTargetPath Include="../config/index-marulu-221110.json">
+		<Content Include="../config/index-marulu-221110.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<TargetPath>config/index-marulu-221110.json</TargetPath>
-		</ContentWithTargetPath>
+		</Content>
 	</ItemGroup>
-	
+
 	<ItemGroup>
 		<PackageReference Include="DalamudPackager" Version="2.1.8" />
 		<Reference Include="FFXIVClientStructs">

@@ -143,12 +143,12 @@
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)openvr\lib\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>d3dcompiler.lib;d3d11.lib;dxgi.lib;openvr_api.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <ProfileGuidedDatabase />
     </Link>
     <PostBuildEvent>
       <Command>xcopy /y $(SolutionDir)openvr\bin\win64\openvr_api.dll $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\
 xcopy /y $(OutDir)xivr_main.dll $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\
-xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\config\
-</Command>
+xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\config\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

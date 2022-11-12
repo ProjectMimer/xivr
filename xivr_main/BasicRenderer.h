@@ -52,7 +52,7 @@ class BasicRenderer
 	int blendIndex = 0;
 
 	float uiZ = 0;
-	float uiScale = 0;
+	float uiScale = 1;
 
 	bool CreateShaders();
 	void DestroyShaders();
