@@ -16,9 +16,9 @@ Notes:
 **• Install Instructions •**
 1. Download and install XIVLauncher from https://github.com/goatcorp/FFXIVQuickLauncher
 2. On the start screen hover over the red dalamud icon on the left hand side and click on settings
-3. Navigate to the Experimental tab and enable "Get plugin testing builds", save the settings and close the window
+3. Navigate to the Experimental tab and enable "Get plugin testing builds", and under Custom Plugin Repositories enter the following URL https://raw.githubusercontent.com/ProjectMimer/DalamudRepo/main/plugin.json click the + symbol and save and close
 4. Using the same method as 2. open the installer and select "All Plugins" on the left side and search for "xivr" in the search box
-5. Install the "XIVR" plugin from the list by selecting Install.
+5. Install the "XIVR" plugin from the list by selecting Install
 
 **• Features •**
 **3D rendering & 6DOF Head Tracking:** 
