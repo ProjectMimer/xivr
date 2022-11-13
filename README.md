@@ -16,7 +16,7 @@ Notes:
 **• Install Instructions •**
 1. Download and install XIVLauncher from https://github.com/goatcorp/FFXIVQuickLauncher
 2. On the start screen hover over the red dalamud icon on the left hand side and click on settings
-3. Navigate to the Experimental tab and enable "Get plugin testing builds", and under Custom Plugin Repositories enter the following URL https://raw.githubusercontent.com/ProjectMimer/DalamudRepo/main/plugin.json click the + symbol and save and close
+3. Navigate to the Experimental tab and enable "Get plugin testing builds", and save and close
 4. Using the same method as 2. open the installer and select "All Plugins" on the left side and search for "xivr" in the search box
 5. Install the "XIVR" plugin from the list by selecting Install.
 
@@ -144,3 +144,22 @@ Motion controllers only work if the game detects a controller of any kind, this 
 
 **UI is not displaying in the headset**
 This can randomly occur when starting VR mode, in this case please use `/xivr uireset`
+
+
+v0.0.0.2 released now installing via the repo should work again
+
+v0.0.0.3 released now the UI should no longer hide randomly, if you have downloaded a previous version please delete \AppData\Roaming\XIVLauncher\pluginConfigs\ xivr.json should the error have been saved in the file
+
+v0.0.0.4 released, "band aid edition" Fix cross-eyed world via `/xivr swapeyes` and ui via `/xivr swapeyesui`  If your normal (non vr) controller isnt working please try `/xivr motcontoggle`
+
+v0.0.5 experimental release
+Fixed floating UI scaling curvature bug
+Fixed shadow glitching at edge of vision
+Gamma is now set to 0 automatically
+Changes to loading order if it crashed previously please try this and report back
+The FPS limiter is automatically toggled to unlimited in the graphics settings, for this to have an effect one needs to press apply in the graphics settings
+please replace `AppData\Roaming\XIVLauncher\installedPlugins\xivr\`
+Auto start seems to be bugged in this version if possible please test with it disabled
+If started from the title screen settings will auto apply if started from the game please run /xivr loadcon after starting vr
+File 1 of 1
+Download
