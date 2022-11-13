@@ -145,6 +145,7 @@ Motion controllers only work if the game detects a controller of any kind, this 
 **UI is not displaying in the headset**
 This can randomly occur when starting VR mode, in this case please use `/xivr uireset`
 
+**• Changelog •**
 
 v0.0.0.2 released now installing via the repo should work again
 
