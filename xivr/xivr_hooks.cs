@@ -253,6 +253,18 @@ namespace xivr
         {
             if (initalized == false)
             {
+                /*try
+                {
+                    // MY_PINVOKES class where P/Invokes are
+                    Marshal.PrelinkAll(typeof(xivr_hooks));
+                }
+                catch
+                {
+                    // Handle error, DLL or Method may not exist
+                }*/
+
+
+
                 BaseAddress = (UInt64)Process.GetCurrentProcess()?.MainModule?.BaseAddress;
                 PluginLog.Log($"Initialize {BaseAddress:X}");
 
@@ -321,19 +333,19 @@ namespace xivr
                 //SavedSettings[ConfigOption.ScreenLeft] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenLeft);
                 //SavedSettings[ConfigOption.ScreenWidth] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenWidth);
                 //SavedSettings[ConfigOption.ScreenHeight] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenHeight);
-                SavedSettings[ConfigOption.Fps] = ConfigModule.Instance()->GetIntValue(ConfigOption.Fps);
-                SavedSettings[ConfigOption.Gamma] = ConfigModule.Instance()->GetIntValue(ConfigOption.Gamma);
+                //SavedSettings[ConfigOption.Fps] = ConfigModule.Instance()->GetIntValue(ConfigOption.Fps);
+                //SavedSettings[ConfigOption.Gamma] = ConfigModule.Instance()->GetIntValue(ConfigOption.Gamma);
 
 
                 //ConfigModule.Instance()->SetOption(ConfigOption.MoveMode, 1);
                 //ConfigModule.Instance()->SetOption(ConfigOption.ScreenMode, 0);
                 //ConfigModule.Instance()->SetOption(ConfigOption.ScreenTop, 0);
                 //ConfigModule.Instance()->SetOption(ConfigOption.ScreenLeft, 0);
-                Point HMDSize = GetBufferSize();
+                //Point HMDSize = GetBufferSize();
                 //ConfigModule.Instance()->SetOption(ConfigOption.ScreenWidth, (HMDSize.X / 2));
                 //ConfigModule.Instance()->SetOption(ConfigOption.ScreenHeight, HMDSize.Y);
-                ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.Gamma, 0);
+                //ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
+                //ConfigModule.Instance()->SetOption(ConfigOption.Gamma, 0);
 
                 //----
                 // Enable all hooks
@@ -369,8 +381,8 @@ namespace xivr
                 //ConfigModule.Instance()->SetOption(ConfigOption.ScreenLeft, SavedSettings[ConfigOption.ScreenLeft]);
                 //ConfigModule.Instance()->SetOption(ConfigOption.ScreenWidth, SavedSettings[ConfigOption.ScreenWidth]);
                 //ConfigModule.Instance()->SetOption(ConfigOption.ScreenHeight, SavedSettings[ConfigOption.ScreenHeight]);
-                ConfigModule.Instance()->SetOption(ConfigOption.Fps, SavedSettings[ConfigOption.Fps]);
-                ConfigModule.Instance()->SetOption(ConfigOption.Gamma, SavedSettings[ConfigOption.Gamma]);
+                //ConfigModule.Instance()->SetOption(ConfigOption.Fps, SavedSettings[ConfigOption.Fps]);
+                //ConfigModule.Instance()->SetOption(ConfigOption.Gamma, SavedSettings[ConfigOption.Gamma]);
 
                 gameProjectionMatrix[0] = Matrix4x4.Identity;
                 gameProjectionMatrix[1] = Matrix4x4.Identity;

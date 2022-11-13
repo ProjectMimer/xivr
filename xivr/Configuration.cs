@@ -9,7 +9,7 @@ namespace xivr
     {
         public int Version { get; set; } = 0;
         public bool isEnabled { get; set; } = false;
-        public bool isAutoEnabled { get; set; } = false;
+        public bool isAutoEnabled { get; set; } = true;
         public bool forceFloatingScreen { get; set; } = false;
         public bool forceFloatingInCutscene { get; set; } = true;
         public bool horizontalLock { get; set; } = false;
