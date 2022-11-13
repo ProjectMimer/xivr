@@ -39,6 +39,7 @@ public:
 	bool StartVR();
 	bool StopVR();
 	void Recenter();
+	POINT GetBufferSize();
 	void SetFramePose();
 	uMatrix GetFramePose(poseType pose_type, int eye);
 	void Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye);

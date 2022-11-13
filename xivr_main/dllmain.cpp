@@ -95,6 +95,7 @@ extern "C"
 	__declspec(dllexport) void SetTexture();
 	__declspec(dllexport) void UpdateZScale(float z, float scale);
 	__declspec(dllexport) void SwapEyesUI(bool swapEyesUI);
+	__declspec(dllexport) POINT GetBufferSize();
 
 	__declspec(dllexport) void UpdateController(UpdateControllerInput controllerCallback);
 }
@@ -225,7 +226,8 @@ void DestroyBackbufferClone()
 #include <algorithm>
 __declspec(dllexport) void SetDX11(unsigned long long struct_device)
 {
-	myfile << "SetDX11:\n";
+	if(myfile.is_open())
+		myfile << "SetDX11:\n";
 	if (device == nullptr)
 	{
 		device = (stDevice*)struct_device;
@@ -517,12 +519,18 @@ __declspec(dllexport) void SetTexture()
 
 __declspec(dllexport) void UpdateZScale(float z, float scale)
 {
-	rend->UpdateZScale(z, scale);
+	if (rend)
+		rend->UpdateZScale(z, scale);
 }
 
 __declspec(dllexport) void SwapEyesUI(bool swapEyesUI)
 {
 	doSwapEye = swapEyesUI;
+}
+
+__declspec(dllexport) POINT GetBufferSize()
+{
+	return svr.GetBufferSize();
 }
 
 __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCallback)
@@ -636,39 +644,4 @@ __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCall
 		if (vr::VRInput()->GetDigitalActionData(steamInput.game.xbox_select, &digitalActionData, sizeof(digitalActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && digitalActionData.bActive == true)
 			controllerCallback(buttonLayout::xbox_select, analogActionData, digitalActionData);
 	}
-}
-
-
-
-
-
-
-__declspec(dllexport) bool hmdGetButtonHasChanged(ButtonList buttonID, ControllerType controllerType)
-{
-	return svr.GetButtonHasChanged(buttonID, controllerType);
-}
-
-__declspec(dllexport) bool hmdGetButtonIsTouched(ButtonList buttonID, ControllerType controllerType)
-{
-	return svr.GetButtonIsTouched(buttonID, controllerType);
-}
-
-__declspec(dllexport) bool hmdGetButtonIsPressed(ButtonList buttonID, ControllerType controllerType)
-{
-	return svr.GetButtonIsPressed(buttonID, controllerType);
-}
-
-__declspec(dllexport) bool hmdGetButtonIsDownFrame(ButtonList buttonID, ControllerType controllerType)
-{
-	return svr.GetButtonIsDownFrame(buttonID, controllerType);
-}
-
-__declspec(dllexport) bool hmdGetButtonIsUpFrame(ButtonList buttonID, ControllerType controllerType)
-{
-	return svr.GetButtonIsUpFrame(buttonID, controllerType);
-}
-
-__declspec(dllexport) float hmdGetButtonValue(ButtonList buttonID, ControllerType controllerType)
-{
-	return svr.GetButtonValue(buttonID, controllerType);
 }

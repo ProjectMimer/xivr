@@ -142,6 +142,11 @@ void simpleVR::Recenter()
 		openVRChaperone->ResetZeroPose(vr::ETrackingUniverseOrigin::TrackingUniverseSeated);
 }
 
+POINT simpleVR::GetBufferSize()
+{
+	return resolution;
+}
+
 void simpleVR::SetFramePose()
 {
 	if (openVRSession && _isConnected)

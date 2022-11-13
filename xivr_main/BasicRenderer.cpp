@@ -547,7 +547,7 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 	}
 	else
 	{
-		DirectX::XMMATRIX uiScaleMatrix = DirectX::XMMatrixScaling(uiScale, uiScale, 1.0f);
+		DirectX::XMMATRIX uiScaleMatrix = DirectX::XMMatrixScaling(uiScale, uiScale, uiScale);
 		DirectX::XMMATRIX uiZMatrix = DirectX::XMMatrixTranslation(0.0f, 0.0f, (uiZ / 100.0f));
 
 		DirectX::XMMATRIX scaleMatrix = DirectX::XMMatrixScaling(0.125f * aspect, 0.125f, 0.125f);
