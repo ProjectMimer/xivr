@@ -159,8 +159,5 @@ Fixed shadow glitching at edge of vision
 Gamma is now set to 0 automatically
 Changes to loading order if it crashed previously please try this and report back
 The FPS limiter is automatically toggled to unlimited in the graphics settings, for this to have an effect one needs to press apply in the graphics settings
-please replace `AppData\Roaming\XIVLauncher\installedPlugins\xivr\`
-Auto start seems to be bugged in this version if possible please test with it disabled
-If started from the title screen settings will auto apply if started from the game please run /xivr loadcon after starting vr
-File 1 of 1
-Download
+
+
