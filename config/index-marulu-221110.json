@@ -267,9 +267,6 @@
             },
             {
                "inputs" : {
-                  "click" : {
-                     "output" : "/actions/game/in/leftclick"
-                  },
                   "pull" : {
                      "output" : "/actions/game/in/xbox_left_trigger"
                   }
@@ -279,9 +276,6 @@
             },
             {
                "inputs" : {
-                  "click" : {
-                     "output" : "/actions/game/in/rightclick"
-                  },
                   "pull" : {
                      "output" : "/actions/game/in/xbox_right_trigger"
                   }
