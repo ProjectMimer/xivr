@@ -26,10 +26,10 @@ namespace xivr
         TitleScreenMenu.TitleScreenMenuEntry xivrMenuEntry;
         xivr_hooks xivr_hooks = new xivr_hooks();
 
-        private bool pluginReady = false;
-        private bool firstRunDone = false;
+        private readonly bool pluginReady = false;
         private bool isEnabled = false;
-        private UInt64 counter = 300;
+        private bool firstRun = false;
+        private UInt64 counter = 0;
 
         public unsafe xivr(DalamudPluginInterface pluginInterface, TitleScreenMenu titleScreenMenu)
         {
@@ -55,33 +55,39 @@ namespace xivr
                         ImGuiScene.TextureWrap image = DalamudApi.PluginInterface.UiBuilder.LoadImage(imgBytes);
                         xivrMenuEntry = DalamudApi.TitleScreenMenu.AddEntry("xivr", image, ToggleConfig);
                     }
+
+                    Configuration.isEnabled = false;
+                    /*
+                    PluginLog.Log($"isEnabled: {Configuration.isEnabled}");
+                    PluginLog.Log($"isAutoEnabled: {Configuration.isAutoEnabled}");
+                    PluginLog.Log($"forceFloatingScreen: {Configuration.forceFloatingScreen}");
+                    PluginLog.Log($"forceFloatingInCutscene: {Configuration.forceFloatingInCutscene}");
+                    PluginLog.Log($"horizontalLock: {Configuration.horizontalLock}");
+                    PluginLog.Log($"verticalLock: {Configuration.verticalLock}");
+                    PluginLog.Log($"horizonLock: {Configuration.horizonLock}");
+                    PluginLog.Log($"offsetAmountX: {Configuration.offsetAmountX}");
+                    PluginLog.Log($"offsetAmountY: {Configuration.offsetAmountY}");
+                    PluginLog.Log($"snapRotateAmountX: {Configuration.snapRotateAmountX}");
+                    PluginLog.Log($"snapRotateAmount:Y {Configuration.snapRotateAmountY}");
+                    PluginLog.Log($"uiOffsetZ: {Configuration.uiOffsetZ}");
+                    PluginLog.Log($"uiOffsetScale: {Configuration.uiOffsetScale}");
+                    */
+                    try
+                    {
+                        Process[] pname = Process.GetProcessesByName("vrserver");
+                        PluginLog.LogError($"ProcessName {pname.Length}");
+                        if (pname.Length > 0 && Configuration.isAutoEnabled)
+                        {
+                            Configuration.isEnabled = true;
+                        }
+
+                        xivr_hooks.Initialize();
+
+                        pluginReady = true;
+                    }
+                    catch (Exception e) { PluginLog.LogError($"Failed initalizing vr\n{e}"); }
                 }
                 catch (Exception e) { PluginLog.LogError($"Failed adding menu item\n{e}"); }
-                /*
-                PluginLog.Log($"isEnabled: {Configuration.isEnabled}");
-                PluginLog.Log($"isAutoEnabled: {Configuration.isAutoEnabled}");
-                PluginLog.Log($"forceFloatingScreen: {Configuration.forceFloatingScreen}");
-                PluginLog.Log($"forceFloatingInCutscene: {Configuration.forceFloatingInCutscene}");
-                PluginLog.Log($"horizontalLock: {Configuration.horizontalLock}");
-                PluginLog.Log($"verticalLock: {Configuration.verticalLock}");
-                PluginLog.Log($"horizonLock: {Configuration.horizonLock}");
-                PluginLog.Log($"offsetAmountX: {Configuration.offsetAmountX}");
-                PluginLog.Log($"offsetAmountY: {Configuration.offsetAmountY}");
-                PluginLog.Log($"snapRotateAmountX: {Configuration.snapRotateAmountX}");
-                PluginLog.Log($"snapRotateAmount:Y {Configuration.snapRotateAmountY}");
-                PluginLog.Log($"uiOffsetZ: {Configuration.uiOffsetZ}");
-                PluginLog.Log($"uiOffsetScale: {Configuration.uiOffsetScale}");
-                */
-                Configuration.isEnabled = false;
-                Process[] pname = Process.GetProcessesByName("vrserver");
-                PluginLog.LogError($"ProcessName {pname.Length}");
-                if (pname.Length > 0 && Configuration.isAutoEnabled)
-                {
-                    Configuration.isEnabled = true;
-                }
-
-                pluginReady = xivr_hooks.Initialize();
-                PluginLog.Log($"PluginLoaded: {pluginReady}");
             }
             catch (Exception e) { PluginLog.LogError($"Failed loading plugin\n{e}"); }
         }
@@ -156,7 +162,7 @@ namespace xivr
                         float.TryParse(regex.Groups[2].Value, out var amount);
                         Configuration.offsetAmountX = amount;
                         Configuration.Save();
-                        xivr_hooks.SetOffsetAmount(Configuration.offsetAmountX, Configuration.offsetAmountY);
+                        LoadSettings();
                         break;
                     }
                 case "offsety":
@@ -164,7 +170,7 @@ namespace xivr
                         float.TryParse(regex.Groups[2].Value, out var amount);
                         Configuration.offsetAmountY = amount;
                         Configuration.Save();
-                        xivr_hooks.SetOffsetAmount(Configuration.offsetAmountX, Configuration.offsetAmountY);
+                        LoadSettings();
                         break;
                     }
                 case "snapanglex":
@@ -172,7 +178,7 @@ namespace xivr
                         float.TryParse(regex.Groups[2].Value, out var amount);
                         Configuration.snapRotateAmountX = amount;
                         Configuration.Save();
-                        xivr_hooks.SetSnapAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
+                        LoadSettings();
                         break;
                     }
                 case "snapangley":
@@ -180,7 +186,7 @@ namespace xivr
                         float.TryParse(regex.Groups[2].Value, out var amount);
                         Configuration.snapRotateAmountY = amount;
                         Configuration.Save();
-                        xivr_hooks.SetOffsetAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
+                        LoadSettings();
                         break;
                     }
                 case "uiz":
@@ -188,7 +194,7 @@ namespace xivr
                         float.TryParse(regex.Groups[2].Value, out var amount);
                         Configuration.uiOffsetZ = amount;
                         Configuration.Save();
-                        xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
+                        LoadSettings();
                         break;
                     }
                 case "uiscale":
@@ -196,7 +202,7 @@ namespace xivr
                         float.TryParse(regex.Groups[2].Value, out var amount);
                         Configuration.uiOffsetScale = amount;
                         Configuration.Save();
-                        xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
+                        LoadSettings();
                         break;
                     }
                 case "uireset":
@@ -204,44 +210,73 @@ namespace xivr
                         Configuration.uiOffsetZ = 0.0f;
                         Configuration.uiOffsetScale = 1.0f;
                         Configuration.Save();
-                        xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
+                        LoadSettings();
                         break;
                     }
                 case "conloc":
                     {
                         Configuration.conloc = !Configuration.conloc;
                         Configuration.Save();
-                        xivr_hooks.SetConLoc(Configuration.conloc);
+                        LoadSettings();
                         break;
                     }
                 case "swapeyes":
                     {
                         Configuration.swapEyes = !Configuration.swapEyes;
                         Configuration.Save();
-                        xivr_hooks.DoSwapEyes(Configuration.swapEyes);
+                        LoadSettings();
                         break;
                     }
                 case "swapeyesui":
                     {
                         Configuration.swapEyesUI = !Configuration.swapEyesUI;
                         Configuration.Save();
-                        xivr_hooks.DoSwapEyesUI(Configuration.swapEyesUI);
+                        LoadSettings();
                         break;
                     }
                 case "motcontoggle":
                     {
                         Configuration.motioncontrol = !Configuration.motioncontrol;
                         Configuration.Save();
-                        xivr_hooks.ToggleMotionControls(Configuration.motioncontrol);
+                        LoadSettings();
+                        break;
+                    }
+                case "loadcon":
+                    {
+                        LoadSettings();
                         break;
                     }
             }
+        }
+
+        private void LoadSettings()
+        {
+            xivr_hooks.SetOffsetAmount(Configuration.offsetAmountX, Configuration.offsetAmountY);
+            xivr_hooks.SetSnapAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
+            xivr_hooks.ToggleMotionControls(Configuration.motioncontrol);
+            xivr_hooks.SetConLoc(Configuration.conloc);
+            xivr_hooks.DoSwapEyes(Configuration.swapEyes);
+            xivr_hooks.DoSwapEyesUI(Configuration.swapEyesUI);
+            xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
+        }
+
+        private unsafe bool CheckCharacterSelection()
+        {
+            AtkUnitBase* CharSelectAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaSelectTitle", 1);
+            return (CharSelectAddon == null) ? false : true;
         }
 
         private void Update(Framework framework)
         {
             if (pluginReady)
             {
+                if(CheckCharacterSelection() && isEnabled == true && firstRun == false)
+                {
+                    LoadSettings();
+                    PluginLog.Log("Setup Complete");
+                    firstRun = true;
+                }
+
                 bool isCutscene = DalamudApi.Condition[ConditionFlag.OccupiedInCutSceneEvent] || DalamudApi.Condition[ConditionFlag.WatchingCutscene] || DalamudApi.Condition[ConditionFlag.WatchingCutscene78];
                 bool forceFloating = Configuration.forceFloatingScreen || (Configuration.forceFloatingInCutscene && isCutscene);
 
@@ -252,15 +287,6 @@ namespace xivr
                 if (Configuration.isEnabled == true && isEnabled == false)
                 {
                     xivr_hooks.Start();
-
-                    xivr_hooks.SetOffsetAmount(Configuration.offsetAmountX, Configuration.offsetAmountY);
-                    xivr_hooks.SetSnapAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
-                    xivr_hooks.ToggleMotionControls(Configuration.motioncontrol);
-                    xivr_hooks.SetConLoc(Configuration.conloc);
-                    xivr_hooks.DoSwapEyes(Configuration.swapEyes);
-                    xivr_hooks.DoSwapEyesUI(Configuration.swapEyesUI);
-                    xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
-                    
                     isEnabled = true;
                 }
                 else if (Configuration.isEnabled == false && isEnabled == true)
@@ -279,12 +305,14 @@ namespace xivr
         private void Draw()
         {
             if (pluginReady)
+            {
                 PluginUI.Draw();
+            }
         }
 
         public void Dispose()
         {
-            counter = 300;
+            firstRun = false;
             if (pluginReady)
                 xivr_hooks.Dispose();
             DalamudApi.TitleScreenMenu.RemoveEntry(xivrMenuEntry);
@@ -292,10 +320,6 @@ namespace xivr
             DalamudApi.PluginInterface.UiBuilder.Draw -= Draw;
             DalamudApi.PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
             DalamudApi.Dispose();
-
-            pluginReady = false;
-            firstRunDone = false;
-            isEnabled = false;
         }
 
     }
