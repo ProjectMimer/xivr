@@ -57,21 +57,7 @@ namespace xivr
                     }
 
                     Configuration.isEnabled = false;
-                    /*
-                    PluginLog.Log($"isEnabled: {Configuration.isEnabled}");
-                    PluginLog.Log($"isAutoEnabled: {Configuration.isAutoEnabled}");
-                    PluginLog.Log($"forceFloatingScreen: {Configuration.forceFloatingScreen}");
-                    PluginLog.Log($"forceFloatingInCutscene: {Configuration.forceFloatingInCutscene}");
-                    PluginLog.Log($"horizontalLock: {Configuration.horizontalLock}");
-                    PluginLog.Log($"verticalLock: {Configuration.verticalLock}");
-                    PluginLog.Log($"horizonLock: {Configuration.horizonLock}");
-                    PluginLog.Log($"offsetAmountX: {Configuration.offsetAmountX}");
-                    PluginLog.Log($"offsetAmountY: {Configuration.offsetAmountY}");
-                    PluginLog.Log($"snapRotateAmountX: {Configuration.snapRotateAmountX}");
-                    PluginLog.Log($"snapRotateAmount:Y {Configuration.snapRotateAmountY}");
-                    PluginLog.Log($"uiOffsetZ: {Configuration.uiOffsetZ}");
-                    PluginLog.Log($"uiOffsetScale: {Configuration.uiOffsetScale}");
-                    */
+
                     try
                     {
                         Process[] pname = Process.GetProcessesByName("vrserver");
@@ -81,9 +67,12 @@ namespace xivr
                             Configuration.isEnabled = true;
                         }
 
-                        xivr_hooks.Initialize();
-
-                        pluginReady = true;
+                        try
+                        {
+                            Marshal.PrelinkAll(typeof(xivr_hooks));
+                            pluginReady = xivr_hooks.Initialize();
+                        }
+                        catch (Exception e) { PluginLog.LogError($"Failed loading vr dll\n{e}"); }
                     }
                     catch (Exception e) { PluginLog.LogError($"Failed initalizing vr\n{e}"); }
                 }

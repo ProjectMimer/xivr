@@ -111,7 +111,18 @@ struct VOut
 	float4 position : SV_POSITION;
 	float2 tex : TEXCOORD0;
 };
+float4 tex2Dmultisample(SamplerState tex, float2 uv)
+{
+	float2 dx = ddx(uv) * 0.25;
+	float2 dy = ddy(uv) * 0.25;
 
+	float4 sample0 = shaderTexture.Sample(tex, uv + dx + dy);
+	float4 sample1 = shaderTexture.Sample(tex, uv + dx - dy);
+	float4 sample2 = shaderTexture.Sample(tex, uv - dx + dy);
+	float4 sample3 = shaderTexture.Sample(tex, uv - dx - dy);
+    
+	return (sample0 + sample1 + sample2 + sample3) * 0.25;
+}
 float4 PShader(VOut input) : SV_TARGET
 {
 	float2 diff = input.tex - coord;
@@ -123,7 +134,7 @@ float4 PShader(VOut input) : SV_TARGET
 	}
 	else
 	{
-		pixel = shaderTexture.Sample(sampleType, input.tex);
+		pixel = tex2Dmultisample(sampleType, input.tex);
 	}
 	return pixel;
 }
