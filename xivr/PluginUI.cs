@@ -14,23 +14,46 @@ namespace xivr
             if (!isVisible)
                 return;
 
-            ImGui.SetNextWindowSize(new Vector2(200, 270) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
-            ImGui.SetNextWindowSizeConstraints(new Vector2(200, 270) * ImGuiHelpers.GlobalScale, new Vector2(9999));
+            ImGui.SetNextWindowSize(new Vector2(300, 350) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowSizeConstraints(new Vector2(300, 350) * ImGuiHelpers.GlobalScale, new Vector2(9999));
             if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             {
                 ImGui.BeginGroup();
-                bool vrEnabled = xivr.Configuration.isEnabled;
-                if (ImGui.Checkbox("Enable", ref vrEnabled))
+                bool isEnabled = xivr.Configuration.isEnabled;
+                if (ImGui.Checkbox("Enable", ref isEnabled))
                 {
-                    xivr.Configuration.isEnabled = vrEnabled;
+                    xivr.Configuration.isEnabled = isEnabled;
                     xivr.Configuration.Save();
                 }
 
-                bool vrAutoEnabled = xivr.Configuration.isAutoEnabled;
-                if (ImGui.Checkbox("Auto Enable if steamvr is active", ref vrAutoEnabled))
+                bool isAutoEnabled = xivr.Configuration.isAutoEnabled;
+                if (ImGui.Checkbox("Auto Enable if steamvr is active", ref isAutoEnabled))
                 {
-                    xivr.Configuration.isAutoEnabled = vrAutoEnabled;
+                    xivr.Configuration.isAutoEnabled = isAutoEnabled;
                     xivr.Configuration.Save();
+                }
+
+                bool autoResize = xivr.Configuration.autoResize;
+                if (ImGui.Checkbox("Auto Resize when activated", ref autoResize))
+                {
+                    xivr.Configuration.autoResize = autoResize;
+                    xivr.Configuration.Save();
+                }
+
+                bool conLock = xivr.Configuration.conloc;
+                if (ImGui.Checkbox("Enable first person controller locomotion", ref conLock))
+                {
+                    xivr.Configuration.conloc = conLock;
+                    xivr.Configuration.Save();
+                    xivr.Plugin.doUpdate = true;
+                }
+
+                bool motioncontrol = xivr.Configuration.motioncontrol;
+                if (ImGui.Checkbox("Enable motion controllers", ref motioncontrol))
+                {
+                    xivr.Configuration.motioncontrol = motioncontrol;
+                    xivr.Configuration.Save();
+                    xivr.Plugin.doUpdate = true;
                 }
 
                 bool forceFloatingScreen = xivr.Configuration.forceFloatingScreen;
@@ -52,6 +75,7 @@ namespace xivr
                 {
                     xivr.Configuration.horizontalLock = horizontalLock;
                     xivr.Configuration.Save();
+                    xivr.Plugin.doUpdate = true;
                 }
 
                 bool verticalLock = xivr.Configuration.verticalLock;
@@ -59,13 +83,15 @@ namespace xivr
                 {
                     xivr.Configuration.verticalLock = verticalLock;
                     xivr.Configuration.Save();
+                    xivr.Plugin.doUpdate = true;
                 }
 
-                bool horizonlLock = xivr.Configuration.horizonLock;
-                if (ImGui.Checkbox("Keep headset level with horizon", ref horizonlLock))
+                bool horizonLock = xivr.Configuration.horizonLock;
+                if (ImGui.Checkbox("Keep headset level with horizon", ref horizonLock))
                 {
-                    xivr.Configuration.horizonLock = horizonlLock;
+                    xivr.Configuration.horizonLock = horizonLock;
                     xivr.Configuration.Save();
+                    xivr.Plugin.doUpdate = true;
                 }
 
                 if (ImGui.Button("Recenter"))

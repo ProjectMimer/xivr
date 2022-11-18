@@ -43,10 +43,6 @@ struct stDX11
 		// If the project is in a debug build, enable the debug layer.
 		creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
-		//----
-		// Disable this quick fix when testing on a computer without debugging stuff
-		//----
-		//creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
 		HRESULT result = CreateDXGIFactory1(__uuidof(IDXGIFactory2), (void**)&factory);
 		if (FAILED(result)) {
 			MessageBoxA(0, "Failed to create DXGIFactory1. (sDX11)", "Error", MB_OK);

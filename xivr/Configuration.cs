@@ -26,7 +26,9 @@ namespace xivr
         public bool swapEyes { get; set; } = false;
         public bool swapEyesUI { get; set; } = false;
         public bool motioncontrol { get; set; } = true;
-        
+        public int hmdWidth { get; set; } = 0;
+        public int hmdHeight { get; set; } = 0;
+        public bool autoResize { get; set; } = false;
 
         [NonSerialized]
         private DalamudPluginInterface? pluginInterface;

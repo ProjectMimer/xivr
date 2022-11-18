@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Drawing;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
@@ -30,6 +31,9 @@ namespace xivr
         private bool isEnabled = false;
         private bool firstRun = false;
         private UInt64 counter = 0;
+        private IntPtr GameWindowHandle = IntPtr.Zero;
+        private Point origWindowSize = new Point(0, 0);
+        public bool doUpdate = false;
 
         public unsafe xivr(DalamudPluginInterface pluginInterface, TitleScreenMenu titleScreenMenu)
         {
@@ -70,6 +74,8 @@ namespace xivr
                         try
                         {
                             Marshal.PrelinkAll(typeof(xivr_hooks));
+                            FindWindowHandle();
+                            counter = 500;
                             pluginReady = xivr_hooks.Initialize();
                         }
                         catch (Exception e) { PluginLog.LogError($"Failed loading vr dll\n{e}"); }
@@ -199,46 +205,41 @@ namespace xivr
                         Configuration.uiOffsetZ = 0.0f;
                         Configuration.uiOffsetScale = 1.0f;
                         Configuration.Save();
-                        LoadSettings();
+                        doUpdate = true;
                         break;
                     }
                 case "conloc":
                     {
                         Configuration.conloc = !Configuration.conloc;
                         Configuration.Save();
-                        LoadSettings();
+                        doUpdate = true;
                         break;
                     }
                 case "swapeyes":
                     {
                         Configuration.swapEyes = !Configuration.swapEyes;
                         Configuration.Save();
-                        LoadSettings();
+                        doUpdate = true;
                         break;
                     }
                 case "swapeyesui":
                     {
                         Configuration.swapEyesUI = !Configuration.swapEyesUI;
                         Configuration.Save();
-                        LoadSettings();
+                        doUpdate = true;
                         break;
                     }
                 case "motcontoggle":
                     {
                         Configuration.motioncontrol = !Configuration.motioncontrol;
                         Configuration.Save();
-                        LoadSettings();
-                        break;
-                    }
-                case "loadcon":
-                    {
-                        LoadSettings();
+                        doUpdate = true;
                         break;
                     }
             }
         }
 
-        private void LoadSettings()
+        public void LoadSettings()
         {
             xivr_hooks.SetOffsetAmount(Configuration.offsetAmountX, Configuration.offsetAmountY);
             xivr_hooks.SetSnapAmount(Configuration.snapRotateAmountX, Configuration.snapRotateAmountY);
@@ -246,24 +247,33 @@ namespace xivr
             xivr_hooks.SetConLoc(Configuration.conloc);
             xivr_hooks.DoSwapEyes(Configuration.swapEyes);
             xivr_hooks.DoSwapEyesUI(Configuration.swapEyesUI);
-            xivr_hooks.SetZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
+            xivr_hooks.UpdateZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
         }
 
-        private unsafe bool CheckCharacterSelection()
+        private void FindWindowHandle()
         {
-            AtkUnitBase* CharSelectAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaSelectTitle", 1);
-            return (CharSelectAddon == null) ? false : true;
+            if (GameWindowHandle == IntPtr.Zero)
+            {
+                while ((GameWindowHandle = xivr_hooks.FindWindowEx(IntPtr.Zero, GameWindowHandle, "FFXIVGAME", "FINAL FANTASY XIV")) != IntPtr.Zero)
+                {
+                    _ = xivr_hooks.GetWindowThreadProcessId(GameWindowHandle, out int pid);
+
+                    if (pid == Environment.ProcessId && xivr_hooks.IsWindowVisible(GameWindowHandle))
+                        break;
+                }
+            }
+            PluginLog.Log($"GameWindowHandle: {GameWindowHandle:X}");
         }
 
         private void Update(Framework framework)
         {
             if (pluginReady)
             {
-                if(CheckCharacterSelection() && isEnabled == true && firstRun == false)
+                if(doUpdate == true)
                 {
                     LoadSettings();
                     PluginLog.Log("Setup Complete");
-                    firstRun = true;
+                    doUpdate = false;
                 }
 
                 bool isCutscene = DalamudApi.Condition[ConditionFlag.OccupiedInCutSceneEvent] || DalamudApi.Condition[ConditionFlag.WatchingCutscene] || DalamudApi.Condition[ConditionFlag.WatchingCutscene78];
@@ -271,23 +281,58 @@ namespace xivr
 
                 xivr_hooks.ForceFloatingScreen(forceFloating);
                 xivr_hooks.SetLocks(Configuration.horizontalLock, Configuration.verticalLock, Configuration.horizonLock);
-                xivr_hooks.Update(framework);
-
+                
                 if (Configuration.isEnabled == true && isEnabled == false)
                 {
-                    xivr_hooks.Start();
-                    isEnabled = true;
+                    //----
+                    // Give the game a few seconds to update the buffers before enabling vr
+                    //----
+                    if (counter == 500)
+                    {
+                        if (Configuration.autoResize && Configuration.hmdWidth != 0 && Configuration.hmdHeight != 0)
+                        {
+                            xivr_hooks.ResizeWindow(GameWindowHandle, Configuration.hmdWidth, Configuration.hmdHeight);
+                            PluginLog.Log($"Resizing window to: {Configuration.hmdWidth}, {Configuration.hmdHeight}");
+                        }
+                        counter--;
+                    }
+                    else if (counter == 150)
+                    {
+                        xivr_hooks.Start();
+                        origWindowSize = xivr_hooks.GetWindowSize();
+                        Point hmdSize = xivr_hooks.GetBufferSize();
+                        Configuration.hmdWidth = hmdSize.X;
+                        Configuration.hmdHeight = hmdSize.Y;
+                        Configuration.Save();
+                        PluginLog.Log($"Saving HMD Size {Configuration.hmdWidth} {Configuration.hmdHeight}");
+                        counter--;
+                    }
+                    else if (counter == 0)
+                    {
+                        doUpdate = true;
+                        isEnabled = true;
+                        counter--;
+                    }
+                    else if (counter >= 0)
+                    {
+                        counter--;
+                    }
                 }
                 else if (Configuration.isEnabled == false && isEnabled == true)
                 {
                     xivr_hooks.Stop();
+                    xivr_hooks.ResizeWindow(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
+                    PluginLog.Log($"Resizing window to: {origWindowSize.X}, {origWindowSize.Y}");
                     isEnabled = false;
+                    counter = 500;
                 }
                 if (Configuration.runRecenter == true)
                 {
                     Configuration.runRecenter = false;
                     xivr_hooks.Recenter();
                 }
+
+                xivr_hooks.Update(framework);
             }
         }
 
@@ -303,7 +348,12 @@ namespace xivr
         {
             firstRun = false;
             if (pluginReady)
+            {
+                xivr_hooks.Stop();
+                xivr_hooks.ResizeWindow(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
+                PluginLog.Log($"Resizing window to: {origWindowSize.X}, {origWindowSize.Y}");
                 xivr_hooks.Dispose();
+            }
             DalamudApi.TitleScreenMenu.RemoveEntry(xivrMenuEntry);
             DalamudApi.Framework.Update -= Update;
             DalamudApi.PluginInterface.UiBuilder.Draw -= Draw;

@@ -66,6 +66,17 @@ namespace xivr
         [DllImport("kernel32.dll")]
         private static extern bool VirtualProtectEx(IntPtr hProcess, IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr FindWindowEx(IntPtr parentHandle, IntPtr childAfter, string lclassName, string windowTitle);
+
+        [DllImport("user32.dll")]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out int ProcessId);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(IntPtr hWnd);
+
+
+
         [DllImport("kernel32.dll")]
         private static extern bool FlushInstructionCache(IntPtr hProcess, IntPtr lpAddress, UIntPtr dwSize);
 
@@ -73,7 +84,7 @@ namespace xivr
         public static extern bool VR_IsHmdPresent();
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void SetDX11(IntPtr Device);
+        public static extern bool SetDX11(IntPtr Device);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UnsetDX11();
@@ -114,6 +125,8 @@ namespace xivr
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern Point GetBufferSize();
 
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void ResizeWindow(IntPtr hwnd, int width, int height);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern bool SetActiveJSON([In, MarshalAs(UnmanagedType.LPUTF8Str)] string filePath, int size);
@@ -160,7 +173,7 @@ namespace xivr
         private Dictionary<ActionButtonLayout, bool> inputState = new Dictionary<ActionButtonLayout, bool>();
         private Dictionary<ConfigOption, int> SavedSettings = new Dictionary<ConfigOption, int>();
         private Stack<bool> overrideFromParent = new Stack<bool>();
-
+        
         private const int FLAG_INVIS = (1 << 1) | (1 << 11);
         private const byte NamePlateCount = 50;
         private UInt64 BaseAddress = 0;
@@ -266,7 +279,6 @@ namespace xivr
             }
         }
 
-
         public bool Initialize()
         {
             if (initalized == false)
@@ -297,20 +309,28 @@ namespace xivr
             return initalized;
         }
 
-
-
-        public void Start()
+        public bool Start()
         {
             if (initalized == true && hooksSet == false && VR_IsHmdPresent())
             {
+                SavedSettings[ConfigOption.ScreenTop] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenTop);
+                SavedSettings[ConfigOption.ScreenLeft] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenLeft);
+                SavedSettings[ConfigOption.ScreenWidth] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenWidth);
+                SavedSettings[ConfigOption.ScreenHeight] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenHeight);
+
+                Point HMDSize = GetBufferSize();
+                ConfigModule.Instance()->SetOption(ConfigOption.ScreenTop, 0);
+                ConfigModule.Instance()->SetOption(ConfigOption.ScreenLeft, 0);
+                ConfigModule.Instance()->SetOption(ConfigOption.ScreenWidth, HMDSize.X);
+                ConfigModule.Instance()->SetOption(ConfigOption.ScreenHeight, HMDSize.Y);
+
                 PluginLog.Log($"VRInit {(IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance():X}");
-                SetDX11((IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance());
+                if(!SetDX11((IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance()))
+                    return false;
 
                 string filePath = Path.Join(DalamudApi.PluginInterface.AssemblyLocation.DirectoryName, "config", "actions.json");
                 if (SetActiveJSON(filePath, filePath.Length) == false)
-                {
                     PluginLog.LogError($"Error loading Json file : {filePath}");
-                }
 
                 gameProjectionMatrix[0] = Matrix4x4.Transpose(GetFramePose(poseType.Projection, 0));
                 gameProjectionMatrix[1] = Matrix4x4.Transpose(GetFramePose(poseType.Projection, 1));
@@ -330,8 +350,10 @@ namespace xivr
                 snapRotateAmount.Y = 15 * RadianConversion;
 
                 hooksSet = true;
-                PrintEcho("Starting Hooks.");
+                PrintEcho("Starting VR.");
+                PluginLog.Log("Starting VR.");
             }
+            return hooksSet;
         }
 
         public void Stop()
@@ -351,11 +373,18 @@ namespace xivr
 
                 UnsetDX11();
 
+                ConfigModule.Instance()->SetOption(ConfigOption.ScreenTop, SavedSettings[ConfigOption.ScreenTop]);
+                ConfigModule.Instance()->SetOption(ConfigOption.ScreenLeft, SavedSettings[ConfigOption.ScreenLeft]);
+                ConfigModule.Instance()->SetOption(ConfigOption.ScreenWidth, SavedSettings[ConfigOption.ScreenWidth]);
+                ConfigModule.Instance()->SetOption(ConfigOption.ScreenHeight, SavedSettings[ConfigOption.ScreenHeight]);
+
                 hooksSet = false;
-                PrintEcho("Stopping Hooks.");
+                PrintEcho("Stopping VR.");
+                PluginLog.Log("Stopping VR.");
             }
         }
 
+        int timer = 100;
         public void Update(Dalamud.Game.Framework framework_)
         {
             if (hooksSet)
@@ -369,7 +398,13 @@ namespace xivr
                 AtkUnitBase* CharMakeAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaMakeTitle", 1);
 
                 if (CharSelectAddon == null && CharMakeAddon == null && DalamudApi.ClientState.LocalPlayer == null)
+                    timer = 100;
+                
+                if(timer > 0)
+                {
                     forceFloatingScreen = true;
+                    timer--;
+                }
 
                 curEye = nextEye[curEye];
                 SetFramePose();
@@ -396,19 +431,14 @@ namespace xivr
 
         public void SetOffsetAmount(float x, float y)
         {
-            if (x != 0) offsetAmount.X = (x / 100.0f) * -1;
-            if (y != 0) offsetAmount.Y = (y / 100.0f) * -1;
+            offsetAmount.X = (x / 100.0f) * -1;
+            offsetAmount.Y = (y / 100.0f) * -1;
         }
 
         public void SetSnapAmount(float x, float y)
         {
             if (x != 0) snapRotateAmount.X = (x * RadianConversion);
             if (x != 0) snapRotateAmount.Y = (y * RadianConversion);
-        }
-
-        public void SetZScale(float z, float scale)
-        {
-            UpdateZScale(z, scale);
         }
 
         public void SetConLoc(bool conloc)
@@ -431,14 +461,16 @@ namespace xivr
             motioncontrol = status;
         }
 
+        public Point GetWindowSize()
+        {
+            return new Point(SavedSettings[ConfigOption.ScreenWidth], SavedSettings[ConfigOption.ScreenHeight]);
+        }
+
         public void Dispose()
         {
-            Stop();
-            //getFixedProjectionHandle.Free();
             getThreadedDataHandle.Free();
             initalized = false;
         }
-
 
         private void AddClearCommand()
         {
@@ -456,7 +488,7 @@ namespace xivr
                     cmd->colorB = 0;
                     cmd->colorA = 0;
                     cmd->unkn1 = 1;
-                    PushbackFn((threadedOffset + 0x18), (UInt64)(*(int*)(threadedOffset + 0x8)), queueData);
+                    PushbackFn!((threadedOffset + 0x18), (UInt64)(*(int*)(threadedOffset + 0x8)), queueData);
                 }
             }
         }

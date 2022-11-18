@@ -1,25 +1,8 @@
 #include "SteamVRInput.h"
-#include <string>
-#include <algorithm>
 
-__declspec(dllexport) bool SetActiveJSON(const char* filePath, int size)
+void setActionHandlesGame(inputController* input)
 {
 	vr::EVRInputError iError = vr::VRInputError_None;
-	bool retVal = true;
-	if (retVal) {
-		if (size > 0) {
-			iError = vr::VRInput()->SetActionManifestPath(filePath);
-			if (iError)
-				retVal = false;
-		}
-	}
-	return retVal;
-}
-
-bool setActionHandlesGame(inputController* input)
-{
-	vr::EVRInputError iError = vr::VRInputError_None;
-
 	iError = vr::VRInput()->GetActionSetHandle("/actions/game", &input->game.setHandle);
 	iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/movement", &input->game.movement);
 	iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/rotation", &input->game.rotation);
@@ -68,6 +51,5 @@ bool setActionHandlesGame(inputController* input)
 
 	iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/xbox_start", &input->game.xbox_start);
 	iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/xbox_select", &input->game.xbox_select);
-
-	return true;
 }
+

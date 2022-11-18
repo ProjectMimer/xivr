@@ -136,6 +136,11 @@ bool simpleVR::StopVR()
 	}
 }
 
+bool simpleVR::isEnabled()
+{
+	return _isConnected;
+}
+
 void simpleVR::Recenter()
 {
 	if (openVRSession && openVRChaperone)
@@ -144,7 +149,7 @@ void simpleVR::Recenter()
 
 POINT simpleVR::GetBufferSize()
 {
-	return resolution;
+	return bufferSize;
 }
 
 void simpleVR::SetFramePose()
@@ -326,66 +331,5 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye)
 		if (error) {
 			int a = 1;
 		}
-	}
-}
-
-
-bool simpleVR::GetButtonHasChanged(ButtonList buttonID, ControllerType controllerType)
-{
-	if (_isConnected) {
-		return controller.HasChanged(buttonID, controllerType);
-	}
-	else {
-		return false;
-	}
-}
-
-bool simpleVR::GetButtonIsTouched(ButtonList buttonID, ControllerType controllerType)
-{
-	if (_isConnected) {
-		return controller.IsTouched(buttonID, controllerType);
-	}
-	else {
-		return false;
-	}
-}
-
-bool simpleVR::GetButtonIsPressed(ButtonList buttonID, ControllerType controllerType)
-{
-	if (_isConnected) {
-		return controller.IsPressed(buttonID, controllerType);
-	}
-	else {
-		return false;
-	}
-}
-
-bool simpleVR::GetButtonIsDownFrame(ButtonList buttonID, ControllerType controllerType)
-{
-	if (_isConnected) {
-		return controller.IsDownFrame(buttonID, controllerType);
-	}
-	else {
-		return false;
-	}
-}
-
-bool simpleVR::GetButtonIsUpFrame(ButtonList buttonID, ControllerType controllerType)
-{
-	if (_isConnected) {
-		return controller.IsUpFrame(buttonID, controllerType);
-	}
-	else {
-		return false;
-	}
-}
-
-float simpleVR::GetButtonValue(ButtonList buttonID, ControllerType controllerType)
-{
-	if (_isConnected) {
-		return controller.GetValue(buttonID, controllerType);
-	}
-	else {
-		return 0.0f;
 	}
 }

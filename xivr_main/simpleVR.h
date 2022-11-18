@@ -38,16 +38,10 @@ public:
 	~simpleVR();
 	bool StartVR();
 	bool StopVR();
+	bool isEnabled();
 	void Recenter();
 	POINT GetBufferSize();
 	void SetFramePose();
 	uMatrix GetFramePose(poseType pose_type, int eye);
 	void Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye);
-
-	bool GetButtonHasChanged(ButtonList buttonID, ControllerType controllerType);
-	bool GetButtonIsTouched(ButtonList buttonID, ControllerType controllerType);
-	bool GetButtonIsPressed(ButtonList buttonID, ControllerType controllerType);
-	bool GetButtonIsDownFrame(ButtonList buttonID, ControllerType controllerType);
-	bool GetButtonIsUpFrame(ButtonList buttonID, ControllerType controllerType);
-	float GetButtonValue(ButtonList buttonID, ControllerType controllerType);
 };
