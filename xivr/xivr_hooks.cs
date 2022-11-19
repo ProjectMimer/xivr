@@ -845,18 +845,23 @@ namespace xivr
                 if (swapFrameCadence)
                     frameCadence = swapEyes[curEye];
 
-                if (frameCadence == 0 || prevFrameGameMatrix == Matrix4x4.Identity)
+                if(stereoHack)
                 {
-                    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
-                    prevFrameGameMatrix = gameViewMatrix;
+                    if (frameCadence == 0 || prevFrameGameMatrix == Matrix4x4.Identity)
+                    {
+                        SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
+                        prevFrameGameMatrix = gameViewMatrix;
+                    }
+                    else
+                    {
+                        gameViewMatrix = prevFrameGameMatrix;
+                    }
                 }
                 else
                 {
-                    if (stereoHack)
-                        gameViewMatrix = prevFrameGameMatrix;
-                    else
-                        SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
+                    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
                 }
+                
                 gameViewMatrix = gameViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
                 SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, gameViewMatrix);
             }
