@@ -281,7 +281,8 @@ namespace xivr
 
                 xivr_hooks.ForceFloatingScreen(forceFloating);
                 xivr_hooks.SetLocks(Configuration.horizontalLock, Configuration.verticalLock, Configuration.horizonLock);
-                
+                xivr_hooks.SetStereoHacks(Configuration.stereoHack, Configuration.swapFrameCadence);
+
                 if (Configuration.isEnabled == true && isEnabled == false)
                 {
                     //----
