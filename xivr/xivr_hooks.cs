@@ -154,6 +154,8 @@ namespace xivr
         private bool doSwapEye = false;
         private bool motioncontrol = true;
         private bool horizontalLock = false;
+        private bool stereoHack = false;
+        private bool swapFrameCadence = false;
         private bool verticalLock = false;
         private bool horizonLock = false;
         private bool doLocomotion = false;
@@ -173,7 +175,7 @@ namespace xivr
         private Dictionary<ActionButtonLayout, bool> inputState = new Dictionary<ActionButtonLayout, bool>();
         private Dictionary<ConfigOption, int> SavedSettings = new Dictionary<ConfigOption, int>();
         private Stack<bool> overrideFromParent = new Stack<bool>();
-        
+
         private const int FLAG_INVIS = (1 << 1) | (1 << 11);
         private const byte NamePlateCount = 50;
         private UInt64 BaseAddress = 0;
@@ -185,6 +187,7 @@ namespace xivr
 
 
         Matrix4x4 curViewMatrix = Matrix4x4.Identity;
+        Matrix4x4 prevFrameGameMatrix = Matrix4x4.Identity;
         Matrix4x4 hmdMatrix = Matrix4x4.Identity;
         Matrix4x4 lhcMatrix = Matrix4x4.Identity;
         Matrix4x4 rhcMatrix = Matrix4x4.Identity;
@@ -399,7 +402,7 @@ namespace xivr
 
                 if (CharSelectAddon == null && CharMakeAddon == null && DalamudApi.ClientState.LocalPlayer == null)
                     timer = 100;
-                
+
                 if(timer > 0)
                 {
                     forceFloatingScreen = true;
@@ -421,6 +424,12 @@ namespace xivr
             horizontalLock = horizontal;
             verticalLock = vertical;
             horizonLock = horizon;
+        }
+
+        public void SetStereoHacks(bool stereoHack, bool swapFrameCadence)
+        {
+            this.stereoHack = stereoHack;
+            this.swapFrameCadence = swapFrameCadence;
         }
 
         public void SetRotateAmount(float x, float y)
@@ -832,7 +841,22 @@ namespace xivr
                 else
                     hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
 
-                SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
+                int frameCadence = curEye;
+                if (swapFrameCadence)
+                    frameCadence = swapEyes[curEye];
+
+                if (frameCadence == 0 || prevFrameGameMatrix == Matrix4x4.Identity)
+                {
+                    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
+                    prevFrameGameMatrix = gameViewMatrix;
+                }
+                else
+                {
+                    if (stereoHack)
+                        gameViewMatrix = prevFrameGameMatrix;
+                    else
+                        SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
+                }
                 gameViewMatrix = gameViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
                 SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, gameViewMatrix);
             }

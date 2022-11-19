@@ -94,6 +94,22 @@ namespace xivr
                     xivr.Plugin.doUpdate = true;
                 }
 
+                bool stereoHack = xivr.Configuration.stereoHack;
+                if (ImGui.Checkbox("Enable Stereo eyes hack", ref stereoHack))
+                {
+                    xivr.Configuration.stereoHack = stereoHack;
+                    xivr.Configuration.Save();
+                    xivr.Plugin.doUpdate = true;
+                }
+
+                bool swapFrameCadence = xivr.Configuration.swapFrameCadence;
+                if (ImGui.Checkbox("Swap stereo hack cadence", ref swapFrameCadence))
+                {
+                    xivr.Configuration.swapFrameCadence = swapFrameCadence;
+                    xivr.Configuration.Save();
+                    xivr.Plugin.doUpdate = true;
+                }
+
                 if (ImGui.Button("Recenter"))
                 {
                     xivr.Configuration.runRecenter = false;

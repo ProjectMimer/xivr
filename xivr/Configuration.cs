@@ -25,6 +25,8 @@ namespace xivr
         public bool conloc { get; set; } = false;
         public bool swapEyes { get; set; } = false;
         public bool swapEyesUI { get; set; } = false;
+        public bool stereoHack { get; set; } = false;
+        public bool swapFrameCadence { get; set; } = false;
         public bool motioncontrol { get; set; } = true;
         public int hmdWidth { get; set; } = 0;
         public int hmdHeight { get; set; } = 0;
