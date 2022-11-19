@@ -22,6 +22,7 @@ namespace xivr
         public float snapRotateAmountY { get; set; } = 15.0f;
         public float uiOffsetZ { get; set; } = 0.0f;
         public float uiOffsetScale { get; set; } = 1.0f;
+        public float ipdOffset { get; set; } = 0.0f;
         public bool conloc { get; set; } = false;
         public bool swapEyes { get; set; } = false;
         public bool swapEyesUI { get; set; } = false;

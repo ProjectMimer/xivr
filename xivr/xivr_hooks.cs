@@ -164,6 +164,7 @@ namespace xivr
         private float RadianConversion = MathF.PI / 180.0f;
         private float cameraZoom = 0.0f;
         private float leftBumperValue = 0.0f;
+        private float ipdOffset = 0.0f;
         private Vector2 rotateAmount = new Vector2(0.0f, 0.0f);
         private Vector2 offsetAmount = new Vector2(0.0f, 0.0f);
         private Vector3 onwardAngle = new Vector3(0.0f, 0.0f, 0.0f);
@@ -439,6 +440,11 @@ namespace xivr
         {
             if (x != 0) snapRotateAmount.X = (x * RadianConversion);
             if (x != 0) snapRotateAmount.Y = (y * RadianConversion);
+        }
+
+        public void SetIPDOffset(float ipd)
+        {
+            ipdOffset = (ipd / 1000.0f) * -1;
         }
 
         public void SetConLoc(bool conloc)
@@ -806,6 +812,7 @@ namespace xivr
             {
                 Matrix4x4 gameViewMatrix = new Matrix4x4();
                 Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
+                Matrix4x4 ipdMatrix = Matrix4x4.Identity;
                 if (camInst != null && horizonLock)
                 {
                     GameCamera* gameCamera = (GameCamera*)(camInst->CameraOffset + (camInst->CameraIndex * 8));
@@ -827,10 +834,14 @@ namespace xivr
                 if (doLocomotion == false || gameMode == 1)
                     revOnward = Matrix4x4.Identity;
 
+                int eye = curEye;
                 if (doSwapEye)
-                    hmdMatrix = hmdMatrix * eyeOffsetMatrix[swapEyes[curEye]];
-                else
-                    hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
+                    eye = swapEyes[curEye];
+
+                if (eye == 0) ipdMatrix.M41 = ipdOffset;
+                else ipdMatrix.M41 = -ipdOffset;
+
+                hmdMatrix = hmdMatrix * ipdMatrix * eyeOffsetMatrix[eye];
 
                 SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
                 gameViewMatrix = gameViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;

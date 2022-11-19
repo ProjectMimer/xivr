@@ -208,6 +208,14 @@ namespace xivr
                         doUpdate = true;
                         break;
                     }
+                case "ipd":
+                    {
+                        float.TryParse(regex.Groups[2].Value, out var amount);
+                        Configuration.ipdOffset = amount;
+                        Configuration.Save();
+                        LoadSettings();
+                        break;
+                    }
                 case "conloc":
                     {
                         Configuration.conloc = !Configuration.conloc;
@@ -247,6 +255,7 @@ namespace xivr
             xivr_hooks.SetConLoc(Configuration.conloc);
             xivr_hooks.DoSwapEyes(Configuration.swapEyes);
             xivr_hooks.DoSwapEyesUI(Configuration.swapEyesUI);
+            xivr_hooks.SetIPDOffset(Configuration.ipdOffset);
             xivr_hooks.UpdateZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
         }
 
