@@ -159,6 +159,7 @@ namespace xivr
         private bool doLocomotion = false;
         private int gameMode = 0;
         private int curEye = 0;
+        private int curFrame = 0;
         private int[] nextEye = { 1, 0 };
         private int[] swapEyes = { 1, 0 };
         private float RadianConversion = MathF.PI / 180.0f;
@@ -185,6 +186,7 @@ namespace xivr
 
 
         Matrix4x4 curViewMatrix = Matrix4x4.Identity;
+        Matrix4x4 prevFrameGameMatrix = Matrix4x4.Identity;
         Matrix4x4 hmdMatrix = Matrix4x4.Identity;
         Matrix4x4 lhcMatrix = Matrix4x4.Identity;
         Matrix4x4 rhcMatrix = Matrix4x4.Identity;
@@ -832,7 +834,17 @@ namespace xivr
                 else
                     hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
 
-                SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
+                if (curFrame == 0)
+                {
+                    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
+                    prevFrameGameMatrix = gameViewMatrix;
+                    curFrame = 1;
+                }
+                else
+                {
+                    gameViewMatrix = prevFrameGameMatrix;
+                    curFrame = 0;
+                }
                 gameViewMatrix = gameViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
                 SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, gameViewMatrix);
             }
