@@ -6,3 +6,4 @@ xivr/obj/*
 xivr_main/bin/*
 xivr_main/x64/*
 .vs/*
+trace.json
