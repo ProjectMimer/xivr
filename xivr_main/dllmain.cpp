@@ -52,7 +52,7 @@ extern "C"
 	__declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD);
 	__declspec(dllexport) void RenderFloatingScreen();
 	__declspec(dllexport) void SetTexture();
-	__declspec(dllexport) void UpdateZScale(float z, float scale);
+	__declspec(dllexport) void UpdateZScale(float x, float y, float z, float scale, float rotate);
 	__declspec(dllexport) void SwapEyesUI(bool swapEyesUI);
 	__declspec(dllexport) POINT GetBufferSize();
 	__declspec(dllexport) void ResizeWindow(HWND hwnd, int width, int height);
@@ -496,10 +496,10 @@ __declspec(dllexport) void SetTexture()
 	}
 }
 
-__declspec(dllexport) void UpdateZScale(float z, float scale)
+__declspec(dllexport) void UpdateZScale(float x, float y, float z, float scale, float rotate)
 {
 	if (rend)
-		rend->UpdateZScale(z, scale);
+		rend->UpdateZScale(x, y, z, scale, rotate);
 }
 
 __declspec(dllexport) void SwapEyesUI(bool swapEyesUI)

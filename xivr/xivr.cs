@@ -184,6 +184,22 @@ namespace xivr
                         LoadSettings();
                         break;
                     }
+                case "uix":
+                    {
+                        float.TryParse(regex.Groups[2].Value, out var amount);
+                        Configuration.uiOffsetX = amount;
+                        Configuration.Save();
+                        LoadSettings();
+                        break;
+                    }
+                case "uiy":
+                    {
+                        float.TryParse(regex.Groups[2].Value, out var amount);
+                        Configuration.uiOffsetY = amount;
+                        Configuration.Save();
+                        LoadSettings();
+                        break;
+                    }
                 case "uiz":
                     {
                         float.TryParse(regex.Groups[2].Value, out var amount);
@@ -200,10 +216,21 @@ namespace xivr
                         LoadSettings();
                         break;
                     }
+                case "uirotate":
+                    {
+                        float.TryParse(regex.Groups[2].Value, out var amount);
+                        Configuration.uiOffsetRotate = amount;
+                        Configuration.Save();
+                        LoadSettings();
+                        break;
+                    }
                 case "uireset":
                     {
+                        Configuration.uiOffsetX = 0.0f;
+                        Configuration.uiOffsetY = 0.0f;
                         Configuration.uiOffsetZ = 0.0f;
                         Configuration.uiOffsetScale = 1.0f;
+                        Configuration.uiOffsetRotate = 0.0f;
                         Configuration.Save();
                         doUpdate = true;
                         break;
@@ -247,7 +274,7 @@ namespace xivr
             xivr_hooks.SetConLoc(Configuration.conloc);
             xivr_hooks.DoSwapEyes(Configuration.swapEyes);
             xivr_hooks.DoSwapEyesUI(Configuration.swapEyesUI);
-            xivr_hooks.UpdateZScale(Configuration.uiOffsetZ, Configuration.uiOffsetScale);
+            xivr_hooks.UpdateZScale(Configuration.uiOffsetX, Configuration.uiOffsetY, Configuration.uiOffsetZ, Configuration.uiOffsetScale, Configuration.uiOffsetRotate);
         }
 
         private void FindWindowHandle()

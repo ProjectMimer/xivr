@@ -117,7 +117,7 @@ namespace xivr
         public static extern void SetTexture();
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void UpdateZScale(float z, float scale);
+        public static extern void UpdateZScale(float x, float y, float z, float scale, float rotate);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void SwapEyesUI(bool swapEyesUI);

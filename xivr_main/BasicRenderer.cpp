@@ -507,10 +507,13 @@ void BasicRenderer::SetMousePosition(HWND hwnd, int width, int height)
 	}
 }
 
-void BasicRenderer::UpdateZScale(float z, float scale)
+void BasicRenderer::UpdateZScale(float x, float y, float z, float scale, float rotate)
 {
+	uiX = x;
+	uiY = y;
 	uiZ = z;
-	uiScale = scale;
+	if(scale != 0) uiScale = scale;
+	uiRotate = DirectX::XMConvertToRadians(rotate);
 }
 
 void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rtv, ID3D11ShaderResourceView* srv, DirectX::XMMATRIX projectionMatrix, DirectX::XMMATRIX viewMatrix, bool isOrthog)
@@ -559,11 +562,12 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 	else
 	{
 		DirectX::XMMATRIX uiScaleMatrix = DirectX::XMMatrixScaling(uiScale, uiScale, uiScale);
-		DirectX::XMMATRIX uiZMatrix = DirectX::XMMatrixTranslation(0.0f, 0.0f, (uiZ / 100.0f));
+		DirectX::XMMATRIX uiZMatrix = DirectX::XMMatrixTranslation((uiX / 100.0f), (uiY / 100.0f), (uiZ / 100.0f));
+		DirectX::XMMATRIX uiRotateMatrix = DirectX::XMMatrixRotationX(uiRotate);
 
 		DirectX::XMMATRIX scaleMatrix = DirectX::XMMatrixScaling(0.125f * aspect, 0.125f, 0.125f);
-		DirectX::XMMATRIX moveMatrix = DirectX::XMMatrixTranslation(0, -1.0f, -8.0f);
-		DirectX::XMMATRIX worldMatrix = moveMatrix * scaleMatrix * uiZMatrix * uiScaleMatrix;
+		DirectX::XMMATRIX moveMatrix = DirectX::XMMatrixTranslation(0, -1.0f, -8.0f);		
+		DirectX::XMMATRIX worldMatrix = moveMatrix * scaleMatrix * uiRotateMatrix * uiZMatrix * uiScaleMatrix;
 		worldMatrix = DirectX::XMMatrixTranspose(worldMatrix);
 
 		matrixBuffer.world = worldMatrix;
