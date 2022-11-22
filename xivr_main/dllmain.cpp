@@ -407,7 +407,19 @@ __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD)
 		if (enableVR)
 		{
 			projectionMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::Projection, curEyeView)._m);
-			viewMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::EyeOffset, curEyeView)._m) * (DirectX::XMMATRIX)(svr.GetFramePose(poseType::hmdPosition, curEyeView)._m);
+
+			uMatrix hmdMatrix;
+
+			if (threadedEye == 0)
+			{
+				hmdMatrix = svr.GetFramePose(poseType::prevHmdPosition, curEyeView);
+			}
+			else
+			{
+				hmdMatrix = svr.GetFramePose(poseType::hmdPosition, curEyeView);
+			}
+		
+			viewMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::EyeOffset, curEyeView)._m) * (DirectX::XMMATRIX)(hmdMatrix._m);
 			viewMatrix = DirectX::XMMatrixTranspose(viewMatrix);
 			viewMatrix = DirectX::XMMatrixInverse(0, viewMatrix);
 

@@ -54,8 +54,9 @@ namespace xivr
         Projection = 0,
         EyeOffset = 1,
         hmdPosition = 10,
-        LeftHand = 20,
-        RightHand = 30,
+        prevHmdPosition = 20,
+        LeftHand = 30,
+        RightHand = 40,
     }
 
     internal unsafe class xivr_hooks
@@ -407,7 +408,6 @@ namespace xivr
                 }
 
                 curEye = nextEye[curEye];
-                SetFramePose();
             }
         }
 

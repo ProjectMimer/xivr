@@ -23,6 +23,7 @@ class simpleVR
 	uMatrix eyeViewMatrixRaw[3];
 	uMatrix identMatrix;
 	uMatrix hmdMatrix;
+	uMatrix prevHmdMatrix;
 	uMatrix controllerLeftMatrix;
 	uMatrix controllerRightMatrix;
 	uMatrix genericMatrix[3];

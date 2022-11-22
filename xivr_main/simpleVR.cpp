@@ -31,6 +31,7 @@ void simpleVR::InitalizeVR()
 	memcpy(&eyeViewMatrixRaw[1], identMatrix._m, sizeof(uMatrix));
 	memcpy(&eyeViewMatrixRaw[2], identMatrix._m, sizeof(uMatrix));
 	memcpy(&hmdMatrix, identMatrix._m, sizeof(uMatrix));
+	memcpy(&prevHmdMatrix, identMatrix._m, sizeof(uMatrix));
 	memcpy(&controllerLeftMatrix, identMatrix._m, sizeof(uMatrix));
 	memcpy(&controllerRightMatrix, identMatrix._m, sizeof(uMatrix));
 
@@ -160,8 +161,8 @@ void simpleVR::SetFramePose()
 		static int rContNum = 0;
 
 		vr::ETrackingUniverseOrigin universeOrigin = vr::VRCompositor()->GetTrackingSpace();
-		//vr::VRCompositor()->WaitGetPoses(rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
-		vr::VRCompositor()->GetLastPoses(rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+		vr::VRCompositor()->WaitGetPoses(rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+		//vr::VRCompositor()->GetLastPoses(rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
 
 		vr::TrackedDevicePose_t hmdPose = vr::TrackedDevicePose_t();
 		vr::TrackedDevicePose_t controllerPose[2] = { 0, 0 };
@@ -244,6 +245,7 @@ void simpleVR::SetFramePose()
 				matPose.m[0][2], matPose.m[1][2], matPose.m[2][2], 0.0f,
 				matPose.m[0][3], matPose.m[1][3], matPose.m[2][3], 1.0f
 			};
+			memcpy(prevHmdMatrix.matrix, hmdMatrix.matrix, sizeof(float) * 4 * 4);
 			memcpy(hmdMatrix.matrix, hMatrix, sizeof(float) * 4 * 4);
 		}
 
@@ -292,6 +294,9 @@ uMatrix simpleVR::GetFramePose(poseType pose_type, int eye)
 	case poseType::hmdPosition:
 		return hmdMatrix;
 		break;
+	case poseType::prevHmdPosition:
+		return prevHmdMatrix;
+		break;
 	case poseType::LeftHand:
 		return controllerLeftMatrix;
 		break;
@@ -319,17 +324,17 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye)
 		vr::VRTextureBounds_t _leftbound = { 0.0f, 0.0f,  0.5f, 1.0f };
 		vr::VRTextureBounds_t _rightbound = { 0.5f, 0.0f,  1.0f, 1.0f };
 
-		vr::VRCompositor()->WaitGetPoses(rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
-
 		vr::EVRCompositorError error = vr::VRCompositorError_None;
 		error = vr::VRCompositor()->Submit(vr::Eye_Left, &completeTexture[0], &_bound, vr::Submit_Default);
 		if (error) {
 			int a = 1;
 		}
-
+	
 		error = vr::VRCompositor()->Submit(vr::Eye_Right, &completeTexture[1], &_bound, vr::Submit_Default);
 		if (error) {
 			int a = 1;
 		}
+
+		SetFramePose();
 	}
 }
