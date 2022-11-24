@@ -73,6 +73,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)$(ProjectName)\bin\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)$(ProjectName)\bin\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -113,14 +116,23 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;XIVRMAIN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(SolutionDir)openvr\headers;D:\Projects\Detours-master\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>$(SolutionDir)openvr\lib\win64;D:\Projects\Detours-master\lib.X64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3dcompiler.lib;d3d11.lib;dxgi.lib;openvr_api.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /y $(SolutionDir)openvr\bin\win64\openvr_api.dll $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\
+xcopy /y $(OutDir)xivr_main.dll $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\
+xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\config\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -154,7 +166,9 @@ xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configurat
   <ItemGroup>
     <ClInclude Include="BasicRenderer.h" />
     <ClInclude Include="clsController.h" />
+    <ClInclude Include="Configuration.h" />
     <ClInclude Include="ffxivDevice.h" />
+    <ClInclude Include="ffxivRenderTargetManager.h" />
     <ClInclude Include="ffxivSwapChain.h" />
     <ClInclude Include="ffxivTexture.h" />
     <ClInclude Include="framework.h" />

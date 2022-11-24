@@ -3,12 +3,13 @@
 // Windows Header Files
 #include <windows.h>
 #include <d3d11_4.h>
-
+#include <DirectXMath.h>
 #include <openvr.h>
 #include <openvr_capi.h>
 
 #include "stCommon.h"
 #include "clsController.h"
+#include "Configuration.h"
 
 class simpleVR
 {
@@ -19,8 +20,9 @@ class simpleVR
 	bool _isConnected = false;
 	POINT bufferSize;
 	POINT resolution;
-	uMatrix projMatrixRaw[3];
-	uMatrix eyeViewMatrixRaw[3];
+	uMatrix projMatrixRaw[2];
+	uMatrix eyeViewMatrixRaw[2];
+	uMatrix eyeViewMatrix[2];
 	uMatrix identMatrix;
 	uMatrix hmdMatrix;
 	uMatrix controllerLeftMatrix;
@@ -30,11 +32,12 @@ class simpleVR
 	float currentIPD;
 	ControllerList controllerID;
 	clsController controller;
-	
+	Configuration* cfg;
+
 	void InitalizeVR();
-	
+
 public:
-	simpleVR();
+	simpleVR(Configuration* config);
 	~simpleVR();
 	bool StartVR();
 	bool StopVR();
@@ -44,4 +47,6 @@ public:
 	void SetFramePose();
 	uMatrix GetFramePose(poseType pose_type, int eye);
 	void Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye);
+	void WaitGetPoses();
+	void MakeIPDOffset();
 };

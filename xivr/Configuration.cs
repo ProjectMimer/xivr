@@ -1,34 +1,71 @@
 ﻿using Dalamud.Configuration;
 using Dalamud.Plugin;
 using System;
+using System.Runtime.InteropServices;
 
 namespace xivr
 {
     [Serializable]
     public class Configuration : IPluginConfiguration
     {
+        [StructLayout(LayoutKind.Sequential)]
+        public struct cfgData
+        {
+            // Bool: U1
+            // Float: R4
+            // Int: I4
+            [MarshalAs(UnmanagedType.U1)] public bool isEnabled;
+            [MarshalAs(UnmanagedType.U1)] public bool isAutoEnabled;
+            [MarshalAs(UnmanagedType.U1)] public bool forceFloatingScreen;
+            [MarshalAs(UnmanagedType.U1)] public bool forceFloatingInCutscene;
+            [MarshalAs(UnmanagedType.U1)] public bool horizontalLock;
+            [MarshalAs(UnmanagedType.U1)] public bool verticalLock;
+            [MarshalAs(UnmanagedType.U1)] public bool horizonLock;
+            [MarshalAs(UnmanagedType.U1)] public bool runRecenter;
+            [MarshalAs(UnmanagedType.R4)] public float offsetAmountX;
+            [MarshalAs(UnmanagedType.R4)] public float offsetAmountY;
+            [MarshalAs(UnmanagedType.R4)] public float snapRotateAmountX;
+            [MarshalAs(UnmanagedType.R4)] public float snapRotateAmountY;
+            [MarshalAs(UnmanagedType.R4)] public float uiOffsetZ;
+            [MarshalAs(UnmanagedType.R4)] public float uiOffsetScale;
+            [MarshalAs(UnmanagedType.U1)] public bool conloc;
+            [MarshalAs(UnmanagedType.U1)] public bool swapEyes;
+            [MarshalAs(UnmanagedType.U1)] public bool swapEyesUI;
+            [MarshalAs(UnmanagedType.U1)] public bool motioncontrol;
+            [MarshalAs(UnmanagedType.I4)] public int hmdWidth;
+            [MarshalAs(UnmanagedType.I4)] public int hmdHeight;
+            [MarshalAs(UnmanagedType.U1)] public bool autoResize;
+            [MarshalAs(UnmanagedType.R4)] public float ipdOffset;
+
+            public cfgData()
+            {
+                isEnabled = false;
+                isAutoEnabled = true;
+                forceFloatingScreen = false;
+                forceFloatingInCutscene = true;
+                horizontalLock = false;
+                verticalLock = true;
+                horizonLock = true;
+                runRecenter = false;
+                offsetAmountX = 0.0f;
+                offsetAmountY = 0.0f;
+                snapRotateAmountX = 45.0f;
+                snapRotateAmountY = 15.0f;
+                uiOffsetZ = 0.0f;
+                uiOffsetScale = 1.0f;
+                conloc = false;
+                swapEyes = false;
+                swapEyesUI = false;
+                motioncontrol = true;
+                hmdWidth = 0;
+                hmdHeight = 0;
+                autoResize = false;
+                ipdOffset = 0.0f;
+            }
+        }
+
         public int Version { get; set; } = 0;
-        public bool isEnabled { get; set; } = false;
-        public bool isAutoEnabled { get; set; } = true;
-        public bool forceFloatingScreen { get; set; } = false;
-        public bool forceFloatingInCutscene { get; set; } = true;
-        public bool horizontalLock { get; set; } = false;
-        public bool verticalLock { get; set; } = true;
-        public bool horizonLock { get; set; } = true;
-        public bool runRecenter { get; set; } = false;
-        public float offsetAmountX { get; set; } = 0.0f;
-        public float offsetAmountY { get; set; } = 0.0f;
-        public float snapRotateAmountX { get; set; } = 45.0f;
-        public float snapRotateAmountY { get; set; } = 15.0f;
-        public float uiOffsetZ { get; set; } = 0.0f;
-        public float uiOffsetScale { get; set; } = 1.0f;
-        public bool conloc { get; set; } = false;
-        public bool swapEyes { get; set; } = false;
-        public bool swapEyesUI { get; set; } = false;
-        public bool motioncontrol { get; set; } = true;
-        public int hmdWidth { get; set; } = 0;
-        public int hmdHeight { get; set; } = 0;
-        public bool autoResize { get; set; } = false;
+        public cfgData data = new cfgData();
 
         [NonSerialized]
         private DalamudPluginInterface? pluginInterface;

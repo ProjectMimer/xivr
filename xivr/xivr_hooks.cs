@@ -84,7 +84,7 @@ namespace xivr
         public static extern bool VR_IsHmdPresent();
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern bool SetDX11(IntPtr Device);
+        public static extern bool SetDX11(IntPtr Device, IntPtr rtManager);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UnsetDX11();
@@ -95,8 +95,12 @@ namespace xivr
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void Recenter();
 
+
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void SetFramePose();
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void WaitGetPoses();
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern Matrix4x4 GetFramePose(poseType posetype, int eye);
@@ -115,12 +119,6 @@ namespace xivr
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void SetTexture();
-
-        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void UpdateZScale(float z, float scale);
-
-        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void SwapEyesUI(bool swapEyesUI);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern Point GetBufferSize();
@@ -151,12 +149,6 @@ namespace xivr
         private bool enableVR = true;
         private bool enableFloatingHUD = true;
         private bool forceFloatingScreen = false;
-        private bool doSwapEye = false;
-        private bool motioncontrol = true;
-        private bool horizontalLock = false;
-        private bool verticalLock = false;
-        private bool horizonLock = false;
-        private bool doLocomotion = false;
         private int gameMode = 0;
         private int curEye = 0;
         private int[] nextEye = { 1, 0 };
@@ -165,24 +157,23 @@ namespace xivr
         private float cameraZoom = 0.0f;
         private float leftBumperValue = 0.0f;
         private Vector2 rotateAmount = new Vector2(0.0f, 0.0f);
-        private Vector2 offsetAmount = new Vector2(0.0f, 0.0f);
         private Vector3 onwardAngle = new Vector3(0.0f, 0.0f, 0.0f);
         private Vector3 onwardDiff = new Vector3(0.0f, 0.0f, 0.0f);
-        private Vector2 snapRotateAmount = new Vector2(0.0f, 0.0f);
         private Point virtualMouse = new Point(0, 0);
         private Dictionary<ActionButtonLayout, bool> inputState = new Dictionary<ActionButtonLayout, bool>();
         private Dictionary<ConfigOption, int> SavedSettings = new Dictionary<ConfigOption, int>();
         private Stack<bool> overrideFromParent = new Stack<bool>();
-        
+        private bool frfCalculateViewMatrix = false; // frf first run this frame
+
         private const int FLAG_INVIS = (1 << 1) | (1 << 11);
         private const byte NamePlateCount = 50;
         private UInt64 BaseAddress = 0;
         private UInt64 globalScaleAddress = 0;
+        private UInt64 RenderTargetManagerAddress = 0;
         private GCHandle getThreadedDataHandle;
         private int[] runCount = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         UpdateControllerInput controllerCallback;
-
 
         Matrix4x4 curViewMatrix = Matrix4x4.Identity;
         Matrix4x4 hmdMatrix = Matrix4x4.Identity;
@@ -204,6 +195,7 @@ namespace xivr
         {
             internal const string CameraManagerInstance = "48 8B 05 ?? ?? ?? ?? 83 78 50 00 75 22";
             internal const string GlobalScale = "F3 0F 10 0D ?? ?? ?? ?? F3 0F 10 40 4C";
+            internal const string RenderTargetManager = "48 8B 05 ?? ?? ?? ?? 49 63 C8";
 
             internal const string DisableLeftClick = "E8 ?? ?? ?? ?? BA ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 16";
             internal const string DisableRightClick = "E8 ?? ?? ?? ?? 48 8B CE E8 ?? ?? ?? ?? 48 85 C0 74 1B";
@@ -293,6 +285,7 @@ namespace xivr
                 camInst = (CameraManagerInstance*)(*(UInt64*)tmpAddress);
 
                 globalScaleAddress = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.GlobalScale);
+                RenderTargetManagerAddress = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.RenderTargetManager);
 
                 GetThreadedDataInit();
                 SetFunctionHandles();
@@ -313,19 +306,7 @@ namespace xivr
         {
             if (initalized == true && hooksSet == false && VR_IsHmdPresent())
             {
-                SavedSettings[ConfigOption.ScreenTop] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenTop);
-                SavedSettings[ConfigOption.ScreenLeft] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenLeft);
-                SavedSettings[ConfigOption.ScreenWidth] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenWidth);
-                SavedSettings[ConfigOption.ScreenHeight] = ConfigModule.Instance()->GetIntValue(ConfigOption.ScreenHeight);
-
-                Point HMDSize = GetBufferSize();
-                ConfigModule.Instance()->SetOption(ConfigOption.ScreenTop, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.ScreenLeft, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.ScreenWidth, HMDSize.X);
-                ConfigModule.Instance()->SetOption(ConfigOption.ScreenHeight, HMDSize.Y);
-
-                PluginLog.Log($"VRInit {(IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance():X}");
-                if(!SetDX11((IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance()))
+                if(!SetDX11((IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance(), *(IntPtr*)RenderTargetManagerAddress))
                     return false;
 
                 string filePath = Path.Join(DalamudApi.PluginInterface.AssemblyLocation.DirectoryName, "config", "actions.json");
@@ -337,17 +318,11 @@ namespace xivr
                 gameProjectionMatrix[0].M43 *= -1;
                 gameProjectionMatrix[1].M43 *= -1;
 
-                Matrix4x4.Invert(GetFramePose(poseType.EyeOffset, 0), out eyeOffsetMatrix[0]);
-                Matrix4x4.Invert(GetFramePose(poseType.EyeOffset, 1), out eyeOffsetMatrix[1]);
-
                 //----
                 // Enable all hooks
                 //----
                 foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
                     attrib.Value(true);
-
-                snapRotateAmount.X = 45 * RadianConversion;
-                snapRotateAmount.Y = 15 * RadianConversion;
 
                 hooksSet = true;
                 PrintEcho("Starting VR.");
@@ -373,11 +348,6 @@ namespace xivr
 
                 UnsetDX11();
 
-                ConfigModule.Instance()->SetOption(ConfigOption.ScreenTop, SavedSettings[ConfigOption.ScreenTop]);
-                ConfigModule.Instance()->SetOption(ConfigOption.ScreenLeft, SavedSettings[ConfigOption.ScreenLeft]);
-                ConfigModule.Instance()->SetOption(ConfigOption.ScreenWidth, SavedSettings[ConfigOption.ScreenWidth]);
-                ConfigModule.Instance()->SetOption(ConfigOption.ScreenHeight, SavedSettings[ConfigOption.ScreenHeight]);
-
                 hooksSet = false;
                 PrintEcho("Stopping VR.");
                 PluginLog.Log("Stopping VR.");
@@ -390,9 +360,13 @@ namespace xivr
             if (hooksSet)
             {
                 UpdateController(controllerCallback);
+                Matrix4x4.Invert(GetFramePose(poseType.EyeOffset, 0), out eyeOffsetMatrix[0]);
+                Matrix4x4.Invert(GetFramePose(poseType.EyeOffset, 1), out eyeOffsetMatrix[1]);
                 Matrix4x4.Invert(GetFramePose(poseType.hmdPosition, -1), out hmdMatrix);
                 lhcMatrix = GetFramePose(poseType.LeftHand, -1);
                 rhcMatrix = GetFramePose(poseType.RightHand, -1);
+
+                frfCalculateViewMatrix = false;
 
                 AtkUnitBase* CharSelectAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaSelectTitle", 1);
                 AtkUnitBase* CharMakeAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaMakeTitle", 1);
@@ -407,7 +381,7 @@ namespace xivr
                 }
 
                 curEye = nextEye[curEye];
-                SetFramePose();
+                //SetFramePose();
             }
         }
 
@@ -416,54 +390,32 @@ namespace xivr
             forceFloatingScreen = forceFloating;
         }
 
-        public void SetLocks(bool horizontal, bool vertical, bool horizon)
-        {
-            horizontalLock = horizontal;
-            verticalLock = vertical;
-            horizonLock = horizon;
-        }
-
         public void SetRotateAmount(float x, float y)
         {
             rotateAmount.X = (x * RadianConversion);
             rotateAmount.Y = (y * RadianConversion);
         }
 
-        public void SetOffsetAmount(float x, float y)
-        {
-            offsetAmount.X = (x / 100.0f) * -1;
-            offsetAmount.Y = (y / 100.0f) * -1;
-        }
-
-        public void SetSnapAmount(float x, float y)
-        {
-            if (x != 0) snapRotateAmount.X = (x * RadianConversion);
-            if (x != 0) snapRotateAmount.Y = (y * RadianConversion);
-        }
-
-        public void SetConLoc(bool conloc)
-        {
-            doLocomotion = conloc;
-        }
-
-        public void DoSwapEyes(bool sync)
-        {
-            doSwapEye = sync;
-        }
-
-        public void DoSwapEyesUI(bool sync)
-        {
-            SwapEyesUI(sync);
-        }
-
-        public void ToggleMotionControls(bool status)
-        {
-            motioncontrol = status;
-        }
-
         public Point GetWindowSize()
         {
-            return new Point(SavedSettings[ConfigOption.ScreenWidth], SavedSettings[ConfigOption.ScreenHeight]);
+            Device *dev = Device.Instance();
+            return new Point((int)dev->Width, (int)dev->Height);
+        }
+
+        public void WindowResize(IntPtr hwnd, int width, int height)
+        {
+            //----
+            // Resizes the internal buffers
+            //----
+            Device* dev = Device.Instance();
+            dev->NewWidth = (uint)width;
+            dev->NewHeight = (uint)height;
+            dev->RequestResolutionChange = 1;
+
+            //----
+            // Resizes the client window to match the internal buffers
+            //----
+            ResizeWindow(hwnd, width, height);
         }
 
         public void Dispose()
@@ -795,46 +747,54 @@ namespace xivr
                 CalculateViewMatrixHook?.Disable();
         }
 
+        //----
+        // This function is also called for ui character stuff so only
+        // act on it the first time its run per frame
+        //----
         private void CalculateViewMatrixFn(UInt64 a)
         {
             IntPtr gameViewMatrixAddr = (IntPtr)(a + 0xA0);
             SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, Matrix4x4.Identity);
             CalculateViewMatrixHook!.Original(a);
-            SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out curViewMatrix);
 
-            if (enableVR && enableFloatingHUD && forceFloatingScreen == false)
+            if (frfCalculateViewMatrix == false)
             {
-                Matrix4x4 gameViewMatrix = new Matrix4x4();
-                Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
-                if (camInst != null && horizonLock)
+                frfCalculateViewMatrix = true;
+                if (curEye == 0 || (xivr.cfg.data.swapEyes && swapEyes[curEye] == 0))
+                    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out curViewMatrix);
+
+                if (enableVR && enableFloatingHUD && forceFloatingScreen == false)
                 {
-                    GameCamera* gameCamera = (GameCamera*)(camInst->CameraOffset + (camInst->CameraIndex * 8));
-                    if (gameCamera != null)
-                        horizonLockMatrix = Matrix4x4.CreateFromAxisAngle(new Vector3(1, 0, 0), gameCamera->CurrentVRotation);
+                    Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
+                    if (camInst != null && xivr.cfg.data.horizonLock)
+                    {
+                        GameCamera* gameCamera = (GameCamera*)(camInst->CameraOffset + (camInst->CameraIndex * 8));
+                        if (gameCamera != null)
+                            horizonLockMatrix = Matrix4x4.CreateFromAxisAngle(new Vector3(1, 0, 0), gameCamera->CurrentVRotation);
 
-                    //PluginLog.Log($"gameCamera {gameCamera->X} {gameCamera->Y} {gameCamera->Z}");
+                        //PluginLog.Log($"gameCamera {gameCamera->X} {gameCamera->Y} {gameCamera->Z}");
+                    }
+                    horizonLockMatrix.M41 = (-xivr.cfg.data.offsetAmountX / 100);
+                    horizonLockMatrix.M42 = (xivr.cfg.data.offsetAmountY / 100);
+
+                    Matrix4x4 invGameViewMatrixAddr;
+                    Vector3 angles = GetAngles(lhcMatrix);
+                    Matrix4x4 revOnward = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), -angles.Y);
+                    Matrix4x4 zoom = Matrix4x4.CreateTranslation(0, 0, -cameraZoom);
+                    //revOnward = revOnward * zoom;
+                    //Matrix4x4.Invert(revOnward, out revOnward);
+
+                    if (xivr.cfg.data.conloc == false || gameMode == 1)
+                        revOnward = Matrix4x4.Identity;
+
+                    if (xivr.cfg.data.swapEyes)
+                        hmdMatrix = hmdMatrix * eyeOffsetMatrix[swapEyes[curEye]];
+                    else
+                        hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
+
+                    Matrix4x4 gameViewMatrix = curViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
+                    SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, gameViewMatrix);
                 }
-                horizonLockMatrix.M41 = offsetAmount.X;
-                horizonLockMatrix.M42 = offsetAmount.Y;
-
-                Matrix4x4 invGameViewMatrixAddr;
-                Vector3 angles = GetAngles(lhcMatrix);
-                Matrix4x4 revOnward = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), -angles.Y);
-                Matrix4x4 zoom = Matrix4x4.CreateTranslation(0, 0, -cameraZoom);
-                //revOnward = revOnward * zoom;
-                //Matrix4x4.Invert(revOnward, out revOnward);
-
-                if (doLocomotion == false || gameMode == 1)
-                    revOnward = Matrix4x4.Identity;
-
-                if (doSwapEye)
-                    hmdMatrix = hmdMatrix * eyeOffsetMatrix[swapEyes[curEye]];
-                else
-                    hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
-
-                SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out gameViewMatrix);
-                gameViewMatrix = gameViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
-                SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, gameViewMatrix);
             }
         }
 
@@ -869,11 +829,11 @@ namespace xivr
                 onwardDiff = angles - onwardAngle;
                 onwardAngle = angles;
 
-                if (horizontalLock)
+                if (xivr.cfg.data.horizontalLock)
                     gameCamera->HRotationThisFrame2 = 0;
-                if (verticalLock)
+                if (xivr.cfg.data.verticalLock)
                     gameCamera->VRotationThisFrame2 = 0;
-                if (doLocomotion == false || gameMode == 1)
+                if (xivr.cfg.data.conloc == false || gameMode == 1)
                     onwardDiff.Y = 0;
 
                 float curH = gameCamera->CurrentHRotation;
@@ -920,7 +880,7 @@ namespace xivr
             float* retVal = MakeProjectionMatrix2Hook!.Original(a, b, c, d, e);
             if (enableVR && enableFloatingHUD && overrideMatrix && forceFloatingScreen == false)
             {
-                if (doSwapEye)
+                if (xivr.cfg.data.swapEyes)
                 {
                     SafeMemory.Read<float>((IntPtr)(a + 0x38), out gameProjectionMatrix[swapEyes[curEye]].M43);
                     SafeMemory.Write<Matrix4x4>((IntPtr)retVal, gameProjectionMatrix[swapEyes[curEye]]);
@@ -938,7 +898,7 @@ namespace xivr
 
         //----
         // CascadeShadow MakeProjectionMatrix
-        //---- BaseAddress + 0x1f1b00
+        //----
         private delegate float* CSMakeProjectionMatrixDg(UInt64 a, float b, float c, float d, float e);
         [Signature(Signatures.CSMakeProjectionMatrix, DetourName = nameof(CSMakeProjectionMatrixFn))]
         private Hook<CSMakeProjectionMatrixDg>? CSMakeProjectionMatrixHook = null;
@@ -967,7 +927,7 @@ namespace xivr
 
         //----
         // RenderThreadSetRenderTarget
-        //---- BaseAddress + 0x337830
+        //----
         private delegate void RenderThreadSetRenderTargetDg(UInt64 a, UInt64 b);
         [Signature(Signatures.RenderThreadSetRenderTarget, DetourName = nameof(RenderThreadSetRenderTargetFn))]
         private Hook<RenderThreadSetRenderTargetDg>? RenderThreadSetRenderTargetHook = null;
@@ -999,7 +959,7 @@ namespace xivr
 
         //----
         // NamePlateDraw
-        //---- BaseAddress + 0xF29D30
+        //----
         private delegate void NamePlateDrawDg(AddonNamePlate* a);
         [Signature(Signatures.NamePlateDraw, DetourName = nameof(NamePlateDrawFn))]
         private Hook<NamePlateDrawDg>? NamePlateDrawHook = null;
@@ -1050,7 +1010,7 @@ namespace xivr
 
         //----
         // LoadCharacter
-        //---- BaseAddress + 0x72FF80
+        //----
         private delegate UInt64 LoadCharacterDg(UInt64 a, UInt64 b, UInt64 c, UInt64 d, UInt64 e, UInt64 f);
         [Signature(Signatures.LoadCharacter, DetourName = nameof(LoadCharacterFn))]
         private Hook<LoadCharacterDg>? LoadCharacterHook = null;
@@ -1066,31 +1026,12 @@ namespace xivr
 
         private UInt64 LoadCharacterFn(UInt64 a, UInt64 b, UInt64 c, UInt64 d, UInt64 e, UInt64 f)
         {
-            //head 279 (EmpNewHeadgear)
-            //ears  53 (EmpNewEaring)
-            //CharaEquipSlotData.cs
-
-            //head gear - 6121 makes your head go inivisble - model head id to 256
-            //variant - 256
             PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
             if (player != null && (UInt64)player.Address == a)
             {
-                //CharCustData* cData = (CharCustData*)c;
-                CharCustData cData = new CharCustData(c);
-                CharEquipData eData = new CharEquipData(d);
-                //Dalamud.Game.ClientState.Objects.Enums.CustomizeIndex
-                //PluginLog.Log($"LoadCharacter {a:X} {b:X} {c:X} {d:X} {e:X} {f:X}");
-                //cData.FaceType = 69;
-                //cData.HairStyle = 69;
-                //PluginLog.Log($"LoadCharacter {cData[0]} {cData[1]} {cData[2]} {cData[3]} {cData[4]} {cData[5]}");
-                //PluginLog.Log($"LoadCharacter {cData.Race} {cData.Gender} {cData.ModelType} {cData.Height} {cData.Tribe} {cData.FaceType}");
-                //PluginLog.Log($"LoadCharacter {eData.Head} {eData.Body} {eData.Hands} {eData.Legs} {eData.Feet}");
-                //PluginLog.Log($"LoadCharacter {cData->Race} {cData->Gender} {cData->ModelType} {cData->Height} {cData->Tribe} {cData->FaceType}");
-
-                //*(ushort*)(d + 0) = 6121;
-                //*(byte*)(d + 0 + 2) = 255;
+                CharCustData* cData = (CharCustData*)c;
+                CharEquipData* eData = (CharEquipData*)d;
             }
-            //PluginLog.Log($"LoadCharacter {a:X} {b:X} {c:X} {d:X} {e:X} {f:X}");
             return LoadCharacterHook!.Original(a, b, c, d, e, f);
         }
 
@@ -1100,7 +1041,7 @@ namespace xivr
 
         //----
         // Input.GetAnalogueValue
-        //---- BaseAddress + 0x4E37F0
+        //----
         private delegate Int32 GetAnalogueValueDg(UInt64 a, UInt64 b);
         [Signature(Signatures.GetAnalogueValue, DetourName = nameof(GetAnalogueValueFn))]
         private Hook<GetAnalogueValueDg>? GetAnalogueValueHook = null;
@@ -1142,12 +1083,12 @@ namespace xivr
                     case 5:
                         //PluginLog.Log($"GetAnalogueValueFn: {retVal}");
                         if (MathF.Abs(retVal) >= 0 && MathF.Abs(retVal) < 15) rightHorizontalCenter = true;
-                        if (horizontalLock && MathF.Abs(leftBumperValue) < 0.5)
+                        if (xivr.cfg.data.horizontalLock && MathF.Abs(leftBumperValue) < 0.5)
                         {
                             if (MathF.Abs(retVal) > 75 && rightHorizontalCenter)
                             {
                                 rightHorizontalCenter = false;
-                                rotateAmount.X -= snapRotateAmount.X * MathF.Sign(retVal);
+                                rotateAmount.X -= (xivr.cfg.data.snapRotateAmountX * RadianConversion) * MathF.Sign(retVal);
                             }
                             retVal = 0;
                         }
@@ -1155,12 +1096,12 @@ namespace xivr
                     case 6:
                         //PluginLog.Log($"GetAnalogueValueFn: {retVal}");
                         if (MathF.Abs(retVal) >= 0 && MathF.Abs(retVal) < 15) rightVerticalCenter = true;
-                        if (verticalLock && MathF.Abs(leftBumperValue) < 0.5)
+                        if (xivr.cfg.data.verticalLock && MathF.Abs(leftBumperValue) < 0.5)
                         {
                             if (MathF.Abs(retVal) > 75 && rightVerticalCenter)
                             {
                                 rightVerticalCenter = false;
-                                rotateAmount.Y -= snapRotateAmount.Y * MathF.Sign(retVal);
+                                rotateAmount.Y -= (xivr.cfg.data.snapRotateAmountY * RadianConversion) * MathF.Sign(retVal);
                             }
                             retVal = 0;
                         }
@@ -1196,53 +1137,53 @@ namespace xivr
             UInt64 controllerAddress = controllerBase + 0x30 + ((controllerIndex * 0x1E6) * 4);
             XBoxButtonOffsets* offsets = (XBoxButtonOffsets*)((controllerIndex * 0x798) + controllerBase);
 
-            if (xboxStatus.dpad_up.active && motioncontrol)
+            if (xboxStatus.dpad_up.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->dpad_up * 4)) = xboxStatus.dpad_up.value;
-            if (xboxStatus.dpad_down.active && motioncontrol)
+            if (xboxStatus.dpad_down.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->dpad_down * 4)) = xboxStatus.dpad_down.value;
-            if (xboxStatus.dpad_left.active && motioncontrol)
+            if (xboxStatus.dpad_left.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->dpad_left * 4)) = xboxStatus.dpad_left.value;
-            if (xboxStatus.dpad_right.active && motioncontrol)
+            if (xboxStatus.dpad_right.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->dpad_right * 4)) = xboxStatus.dpad_right.value;
-            if (xboxStatus.left_stick_down.active && motioncontrol)
+            if (xboxStatus.left_stick_down.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4)) = xboxStatus.left_stick_down.value;
-            if (xboxStatus.left_stick_up.active && motioncontrol)
+            if (xboxStatus.left_stick_up.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4)) = xboxStatus.left_stick_up.value;
-            if (xboxStatus.left_stick_left.active && motioncontrol)
+            if (xboxStatus.left_stick_left.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4)) = xboxStatus.left_stick_left.value;
-            if (xboxStatus.left_stick_right.active && motioncontrol)
+            if (xboxStatus.left_stick_right.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4)) = xboxStatus.left_stick_right.value;
-            if (xboxStatus.right_stick_down.active && motioncontrol)
+            if (xboxStatus.right_stick_down.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_down * 4)) = xboxStatus.right_stick_down.value;
-            if (xboxStatus.right_stick_up.active && motioncontrol)
+            if (xboxStatus.right_stick_up.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_up * 4)) = xboxStatus.right_stick_up.value;
-            if (xboxStatus.right_stick_left.active && motioncontrol)
+            if (xboxStatus.right_stick_left.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_left * 4)) = xboxStatus.right_stick_left.value;
-            if (xboxStatus.right_stick_right.active && motioncontrol)
+            if (xboxStatus.right_stick_right.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_right * 4)) = xboxStatus.right_stick_right.value;
-            if (xboxStatus.button_y.active && motioncontrol)
+            if (xboxStatus.button_y.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->button_y * 4)) = xboxStatus.button_y.value;
-            if (xboxStatus.button_b.active && motioncontrol)
+            if (xboxStatus.button_b.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->button_b * 4)) = xboxStatus.button_b.value;
-            if (xboxStatus.button_a.active && motioncontrol)
+            if (xboxStatus.button_a.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->button_a * 4)) = xboxStatus.button_a.value;
-            if (xboxStatus.button_x.active && motioncontrol)
+            if (xboxStatus.button_x.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->button_x * 4)) = xboxStatus.button_x.value;
-            if (xboxStatus.left_bumper.active && motioncontrol)
+            if (xboxStatus.left_bumper.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4)) = xboxStatus.left_bumper.value;
-            if (xboxStatus.left_trigger.active && motioncontrol)
+            if (xboxStatus.left_trigger.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_trigger * 4)) = xboxStatus.left_trigger.value;
-            if (xboxStatus.left_stick_click.active && motioncontrol)
+            if (xboxStatus.left_stick_click.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = xboxStatus.left_stick_click.value;
-            if (xboxStatus.right_bumper.active && motioncontrol)
+            if (xboxStatus.right_bumper.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_bumper * 4)) = xboxStatus.right_bumper.value;
-            if (xboxStatus.right_trigger.active && motioncontrol)
+            if (xboxStatus.right_trigger.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = xboxStatus.right_trigger.value;
-            if (xboxStatus.right_stick_click.active && motioncontrol)
+            if (xboxStatus.right_stick_click.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = xboxStatus.right_stick_click.value;
-            if (xboxStatus.start.active && motioncontrol)
+            if (xboxStatus.start.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->start * 4)) = xboxStatus.start.value;
-            if (xboxStatus.select.active && motioncontrol)
+            if (xboxStatus.select.active && xivr.cfg.data.motioncontrol)
                 *(float*)(controllerAddress + (UInt64)(offsets->select * 4)) = xboxStatus.select.value;
 
             leftBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4));

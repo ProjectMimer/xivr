@@ -1,0 +1,7 @@
+.git/
+.vs/
+bin
+obj
+x64
+packages
+openvr

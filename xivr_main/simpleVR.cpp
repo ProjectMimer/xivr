@@ -1,8 +1,7 @@
-#pragma once
 #include "simpleVR.h"
 
 
-simpleVR::simpleVR()
+simpleVR::simpleVR(Configuration* config) : cfg(config)
 {
 	InitalizeVR();
 }
@@ -24,19 +23,18 @@ void simpleVR::InitalizeVR()
 	// Sets a default identity matrix, and sets all other matrices to it
 	//----
 	memcpy(&identMatrix, tIdentMat, sizeof(uMatrix));
-	memcpy(&projMatrixRaw, identMatrix._m, sizeof(uMatrix));
+	memcpy(&projMatrixRaw[0], identMatrix._m, sizeof(uMatrix));
 	memcpy(&projMatrixRaw[1], identMatrix._m, sizeof(uMatrix));
-	memcpy(&projMatrixRaw[2], identMatrix._m, sizeof(uMatrix));
-	memcpy(&eyeViewMatrixRaw, identMatrix._m, sizeof(uMatrix));
+	memcpy(&eyeViewMatrixRaw[0], identMatrix._m, sizeof(uMatrix));
 	memcpy(&eyeViewMatrixRaw[1], identMatrix._m, sizeof(uMatrix));
-	memcpy(&eyeViewMatrixRaw[2], identMatrix._m, sizeof(uMatrix));
+	memcpy(&eyeViewMatrix[0], identMatrix._m, sizeof(uMatrix));
+	memcpy(&eyeViewMatrix[1], identMatrix._m, sizeof(uMatrix));
 	memcpy(&hmdMatrix, identMatrix._m, sizeof(uMatrix));
 	memcpy(&controllerLeftMatrix, identMatrix._m, sizeof(uMatrix));
 	memcpy(&controllerRightMatrix, identMatrix._m, sizeof(uMatrix));
 
 	controllerID = ControllerID::NA;
 	controller = clsController();
-	
 }
 
 
@@ -90,8 +88,11 @@ bool simpleVR::StartVR()
 			}
 		};
 
-		memcpy(&eyeViewMatrixRaw[0], &eyeView[0], sizeof(float) * 4 * 4);
-		memcpy(&eyeViewMatrixRaw[1], &eyeView[1], sizeof(float) * 4 * 4);
+		memcpy(&eyeViewMatrixRaw[0], &eyeView[0], sizeof(uMatrix));
+		memcpy(&eyeViewMatrixRaw[1], &eyeView[1], sizeof(uMatrix));
+
+		memcpy(&eyeViewMatrix[0], &eyeViewMatrixRaw[0], sizeof(uMatrix));
+		memcpy(&eyeViewMatrix[1], &eyeViewMatrixRaw[1], sizeof(uMatrix));
 
 		//----
 		// Gets the buffer and resolution sizes
@@ -149,7 +150,7 @@ void simpleVR::Recenter()
 
 POINT simpleVR::GetBufferSize()
 {
-	return bufferSize;
+	return resolution;
 }
 
 void simpleVR::SetFramePose()
@@ -287,7 +288,7 @@ uMatrix simpleVR::GetFramePose(poseType pose_type, int eye)
 		return projMatrixRaw[eye];
 		break;
 	case poseType::EyeOffset:
-		return eyeViewMatrixRaw[eye];
+		return eyeViewMatrix[eye];
 		break;
 	case poseType::hmdPosition:
 		return hmdMatrix;
@@ -319,7 +320,7 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye)
 		vr::VRTextureBounds_t _leftbound = { 0.0f, 0.0f,  0.5f, 1.0f };
 		vr::VRTextureBounds_t _rightbound = { 0.5f, 0.0f,  1.0f, 1.0f };
 
-		vr::VRCompositor()->WaitGetPoses(rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+		WaitGetPoses();
 
 		vr::EVRCompositorError error = vr::VRCompositorError_None;
 		error = vr::VRCompositor()->Submit(vr::Eye_Left, &completeTexture[0], &_bound, vr::Submit_Default);
@@ -331,5 +332,21 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye)
 		if (error) {
 			int a = 1;
 		}
+
+		SetFramePose();
 	}
+}
+
+void simpleVR::WaitGetPoses()
+{
+	vr::VRCompositor()->WaitGetPoses(rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+}
+
+void simpleVR::MakeIPDOffset()
+{
+	memcpy(&eyeViewMatrix[0], &eyeViewMatrixRaw[0], sizeof(uMatrix));
+	memcpy(&eyeViewMatrix[1], &eyeViewMatrixRaw[1], sizeof(uMatrix));
+
+	eyeViewMatrix[0]._m[12] += -cfg->ipdOffset;
+	eyeViewMatrix[1]._m[12] += +cfg->ipdOffset;
 }

@@ -2,12 +2,12 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-
+std::ofstream myfile;
 stDevice* device = nullptr;
-
+stRenderTargetManager* rtManager = nullptr;
 D3D11_TEXTURE2D_DESC BackBufferDesc;
 
-BasicRenderer* rend = new BasicRenderer();
+
 stScreenLayout screenLayout = stScreenLayout();
 stTexture uiRenderTexture[2] = { stTexture(), stTexture() };
 
@@ -24,11 +24,11 @@ D3D11_VIEWPORT viewport;
 bool enabled = false;
 int threadedEye = 0;
 bool logging = false;
-bool doSwapEye = false;
 int swapEyes[] = { 1, 0 };
 
-std::ofstream myfile;
-simpleVR svr = simpleVR();
+Configuration cfg = Configuration();
+simpleVR svr = simpleVR(&cfg);
+BasicRenderer* rend = new BasicRenderer(&cfg);
 
 void InitInstance(HANDLE);
 void ExitInstance();
@@ -41,19 +41,19 @@ typedef void(__stdcall* UpdateControllerInput)(buttonLayout buttonId, vr::InputA
 
 extern "C"
 {
-	__declspec(dllexport) bool SetDX11(unsigned long long struct_deivce);
+	__declspec(dllexport) bool SetDX11(unsigned long long struct_deivce, unsigned long long rtm);
 	__declspec(dllexport) void UnsetDX11();
 	__declspec(dllexport) stTexture* GetUIRenderTexture(int curEye);
 	__declspec(dllexport) void Recenter();
+	__declspec(dllexport) void UpdateConfiguration(Configuration newConfig);
 	__declspec(dllexport) void SetFramePose();
+	__declspec(dllexport) void WaitGetPoses();
 	__declspec(dllexport) uMatrix GetFramePose(poseType posetype, int eye);
 	__declspec(dllexport) void SetThreadedEye(int eye);
 	__declspec(dllexport) void RenderVR();
 	__declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD);
 	__declspec(dllexport) void RenderFloatingScreen();
 	__declspec(dllexport) void SetTexture();
-	__declspec(dllexport) void UpdateZScale(float z, float scale);
-	__declspec(dllexport) void SwapEyesUI(bool swapEyesUI);
 	__declspec(dllexport) POINT GetBufferSize();
 	__declspec(dllexport) void ResizeWindow(HWND hwnd, int width, int height);
 
@@ -186,13 +186,14 @@ void DestroyBackbufferClone()
 	}
 }
 
-__declspec(dllexport) bool SetDX11(unsigned long long struct_device)
+__declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned long long rtm)
 {
 	if(myfile.is_open())
 		myfile << "SetDX11:\n";
-	if (device == nullptr)
+	if (device == nullptr && enabled == false)
 	{
 		device = (stDevice*)struct_device;
+		rtManager = (stRenderTargetManager*)rtm;
 		if (myfile.is_open())
 		{
 			myfile << "Device:\n";
@@ -202,13 +203,15 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device)
 			myfile << "DevCon: " << device->DeviceContext << std::endl;
 			myfile << "Swap: " << device->SwapChain->DXGISwapChain << std::endl;
 			myfile << "BackBuffer: " << device->SwapChain->BackBuffer << std::endl;
+			myfile << std::dec << "device Size: " << device->width << "x" << device->height << " : " << device->newWidth << "x" << device->newHeight << std::endl;
+
 			forceFlush();
 		}
 
 		device->SwapChain->BackBuffer->Texture->GetDesc(&BackBufferDesc);
 		if (myfile.is_open())
 		{
-			myfile << "BB Desc: u:" << std::dec << BackBufferDesc.Usage << " f:" << BackBufferDesc.Format << " w:" << BackBufferDesc.Width << " h:" << BackBufferDesc.Height << std::endl;
+			myfile << std::dec << "BB Desc: u:" << BackBufferDesc.Usage << " f:" << BackBufferDesc.Format << " w:" << BackBufferDesc.Width << " h:" << BackBufferDesc.Height << std::endl;
 			forceFlush();
 		}
 
@@ -223,9 +226,8 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device)
 
 		if (myfile.is_open())
 		{
-			myfile << std::hex;
-			myfile << "BackBuffer: " << device->SwapChain->BackBuffer << " : " << device->SwapChain->BackBuffer->Texture << std::endl;
-			myfile << "BackBuff: " << std::dec << device->SwapChain->BackBuffer->Width << " : " << device->SwapChain->BackBuffer->Height << " : " << device->SwapChain->BackBuffer->TextureFormat << " : " << std::hex << device->SwapChain->BackBuffer->Flags << std::endl;
+			myfile << std::hex << "BackBuffer: " << device->SwapChain->BackBuffer << " : " << device->SwapChain->BackBuffer->Texture << std::endl;
+			myfile << std::dec << "BackBuff: " << device->SwapChain->BackBuffer->Width << " : " << device->SwapChain->BackBuffer->Height << " : " << device->SwapChain->BackBuffer->TextureFormat << " : " << std::hex << device->SwapChain->BackBuffer->Flags << std::endl;
 			forceFlush();
 		}
 
@@ -313,8 +315,11 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device)
 		enabled = true;
 	}
 	if (myfile.is_open())
-		myfile << "SetDX11 .. Done:" << std::endl;
-	
+	{
+		myfile << "SetDX11 .. Done:\n";
+		forceFlush();
+	}
+
 	return enabled;
 }
 
@@ -322,7 +327,6 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device)
 
 __declspec(dllexport) void UnsetDX11()
 {
-	enabled = false;
 	if (myfile.is_open())
 		myfile << "### StopDX11" << std::endl;
 	
@@ -354,7 +358,7 @@ __declspec(dllexport) void UnsetDX11()
 	if (myfile.is_open())
 		myfile << "StopDX11 ###" << std::endl;
 	forceFlush();
-
+	enabled = false;
 }
 
 __declspec(dllexport) stTexture* GetUIRenderTexture(int curEye)
@@ -367,9 +371,21 @@ __declspec(dllexport) void Recenter()
 	svr.Recenter();
 }
 
+__declspec(dllexport) void UpdateConfiguration(Configuration newConfig)
+{
+	cfg = newConfig;
+	if (svr.isEnabled())
+		svr.MakeIPDOffset();
+}
+
 __declspec(dllexport) void SetFramePose()
 {
 	svr.SetFramePose();
+}
+
+__declspec(dllexport) void WaitGetPoses()
+{
+	svr.WaitGetPoses();
 }
 
 __declspec(dllexport) uMatrix GetFramePose(poseType posetype, int eye)
@@ -396,13 +412,10 @@ __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD)
 		DirectX::XMMATRIX viewMatrix;
 
 		int curEyeView = 0;
-		if (doSwapEye)
+		if (cfg.swapEyesUI)
 			curEyeView = swapEyes[threadedEye];
 		else
 			curEyeView = threadedEye;
-
-
-		//myfile << "Eye" << threadedEye << " : " << curEyeView << " : " << swapEyes[threadedEye] << std::endl;
 
 		if (enableVR)
 		{
@@ -494,17 +507,6 @@ __declspec(dllexport) void SetTexture()
 		if (bbcResource) { bbcResource->Release(); bbcResource = nullptr; }
 		if (bbResource) { bbResource->Release(); bbResource = nullptr; }
 	}
-}
-
-__declspec(dllexport) void UpdateZScale(float z, float scale)
-{
-	if (rend)
-		rend->UpdateZScale(z, scale);
-}
-
-__declspec(dllexport) void SwapEyesUI(bool swapEyesUI)
-{
-	doSwapEye = swapEyesUI;
 }
 
 __declspec(dllexport) POINT GetBufferSize()

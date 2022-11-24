@@ -1,6 +1,6 @@
 #include "BasicRenderer.h"
 
-BasicRenderer::BasicRenderer() : dev(nullptr), devcon(nullptr), clearColor()
+BasicRenderer::BasicRenderer(Configuration* config) : dev(nullptr), devcon(nullptr), clearColor(), cfg(config)
 {
 }
 
@@ -37,7 +37,8 @@ bool BasicRenderer::CreateShaders()
 {
 	HRESULT result = S_OK;
 	ID3D10Blob* errorMessage;
-	ID3D10Blob* VS, * PS;
+	ID3D10Blob* VS;
+	ID3D10Blob* PS;
 
 	const char* defaultVertexShaderSrc = R"""(
 struct VOut
@@ -49,7 +50,7 @@ struct VOut
 VOut VShader(float4 position : POSITION, float2 tex : TEXCOORD0)
 {
 	VOut output;
-	output.position = position;
+	output.position = float4(position.xyz, 1.0f);
 	output.tex = tex;
 	return output;
 }
@@ -71,9 +72,8 @@ cbuffer MatrixBuffer
 		
 VOut VShader(float4 position : POSITION, float2 tex : TEXCOORD0)
 {
-	position.w = 1.0f;
 	VOut output;
-	output.position = position;
+	output.position = float4(position.xyz, 1.0f);
 	output.position = mul(output.position, worldMatrix);
 	output.position = mul(output.position, viewMatrix);
 	output.position = mul(output.position, projectionMatrix);
@@ -507,12 +507,6 @@ void BasicRenderer::SetMousePosition(HWND hwnd, int width, int height)
 	}
 }
 
-void BasicRenderer::UpdateZScale(float z, float scale)
-{
-	uiZ = z;
-	uiScale = scale;
-}
-
 void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rtv, ID3D11ShaderResourceView* srv, DirectX::XMMATRIX projectionMatrix, DirectX::XMMATRIX viewMatrix, bool isOrthog)
 {
 	UINT Stride = sizeof(VertexType);
@@ -532,7 +526,6 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 
 	devcon->OMSetRenderTargets(1, &rtv, NULL);
 	devcon->RSSetViewports(1, &viewport);
-
 	devcon->IASetInputLayout(pLayout);
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -558,8 +551,8 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 	}
 	else
 	{
-		DirectX::XMMATRIX uiScaleMatrix = DirectX::XMMatrixScaling(uiScale, uiScale, uiScale);
-		DirectX::XMMATRIX uiZMatrix = DirectX::XMMatrixTranslation(0.0f, 0.0f, (uiZ / 100.0f));
+		DirectX::XMMATRIX uiScaleMatrix = DirectX::XMMatrixScaling(cfg->uiOffsetScale, cfg->uiOffsetScale, cfg->uiOffsetScale);
+		DirectX::XMMATRIX uiZMatrix = DirectX::XMMatrixTranslation(0.0f, 0.0f, (cfg->uiOffsetZ / 100.0f));
 
 		DirectX::XMMATRIX scaleMatrix = DirectX::XMMatrixScaling(0.125f * aspect, 0.125f, 0.125f);
 		DirectX::XMMATRIX moveMatrix = DirectX::XMMatrixTranslation(0, -1.0f, -8.0f);
@@ -573,7 +566,6 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 
 		devcon->IASetVertexBuffers(0, 1, &pVBuffer, &Stride, &Offset);
 		devcon->IASetIndexBuffer(pIBuffer, DXGI_FORMAT_R16_UINT, 0);
-
 		devcon->DrawIndexed(102, 0, 0);
 	}
 }
