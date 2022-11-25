@@ -347,6 +347,6 @@ void simpleVR::MakeIPDOffset()
 	memcpy(&eyeViewMatrix[0], &eyeViewMatrixRaw[0], sizeof(uMatrix));
 	memcpy(&eyeViewMatrix[1], &eyeViewMatrixRaw[1], sizeof(uMatrix));
 
-	eyeViewMatrix[0]._m[12] += -cfg->ipdOffset;
-	eyeViewMatrix[1]._m[12] += +cfg->ipdOffset;
+	eyeViewMatrix[0]._m[12] += -(cfg->ipdOffset / 1000);
+	eyeViewMatrix[1]._m[12] += +(cfg->ipdOffset / 1000);
 }
