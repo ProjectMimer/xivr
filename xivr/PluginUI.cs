@@ -129,7 +129,7 @@ namespace xivr
 
             ImGui.Text("Z Offset"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:zoff", ref uiOffsetZ);
             ImGui.Text("Z Scale"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:zscale", ref uiOffsetScale);
-            ImGui.Text("IPD Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:ipdoff", ref ipdOffset, -1, 1, "%f");
+            ImGui.Text("IPD Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:ipdoff", ref ipdOffset, -10, 10, "%f");
 
             ImGui.Text("Swap Eyes"); ImGui.SameLine(); ImGui.Checkbox("##DrawUISetings:swapeyes", ref swapEyes);
             ImGui.Text("Swap Eyes UI"); ImGui.SameLine(); ImGui.Checkbox("##DrawUISetings:swapeyesui", ref swapEyesUI);
