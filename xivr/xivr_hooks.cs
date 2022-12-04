@@ -21,6 +21,10 @@ using FFXIVClientStructs.FFXIV.Client.System;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using FFXIVClientStructs.FFXIV.Client.System.Memory;
+using Dalamud.Game.ClientState.Party;
+using static FFXIVClientStructs.FFXIV.Client.UI.AddonNamePlate;
+using Lumina.Excel.GeneratedSheets;
 
 namespace xivr
 {
@@ -194,6 +198,8 @@ namespace xivr
                 };
 
         CameraManagerInstance* camInst = null;
+        AtkImageNode* vrTargetCursor = null;
+        NamePlateObject* currentNPTarget = null;
 
         private static class Signatures
         {
@@ -277,6 +283,178 @@ namespace xivr
                         inputList.Add(key, handle);
                         inputState.Add(key, false);
                     }
+                }
+            }
+        }
+
+        public bool SetupVRTargetCursor(AddonNamePlate* addonNamePlate)
+        {
+            if(vrTargetCursor != null)
+            {
+                return true;
+            }
+
+            vrTargetCursor = (AtkImageNode*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkImageNode), 8);
+            if (vrTargetCursor == null)
+            {
+                PluginLog.Debug("Failed to allocate memory for image node");
+                return false;
+            }
+            IMemorySpace.Memset(vrTargetCursor, 0, (ulong)sizeof(AtkImageNode));
+            vrTargetCursor->Ctor();
+
+            vrTargetCursor->AtkResNode.Type = NodeType.Image;
+            vrTargetCursor->AtkResNode.Flags = (short)(NodeFlags.AnchorLeft | NodeFlags.AnchorTop | NodeFlags.UseDepthBasedPriority);
+            vrTargetCursor->AtkResNode.DrawFlags = 0;
+
+            vrTargetCursor->WrapMode = 1;
+            vrTargetCursor->Flags |= (byte)ImageNodeFlags.AutoFit;
+
+            var partsList = (AtkUldPartsList*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkUldPartsList), 8);
+            if (partsList == null)
+            {
+                PluginLog.Debug("Failed to allocate memory for parts list");
+                vrTargetCursor->AtkResNode.Destroy(true);
+                return false;
+            }
+
+            partsList->Id = 0;
+            partsList->PartCount = 1;
+
+            var part = (AtkUldPart*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkUldPart), 8);
+            if (part == null)
+            {
+                PluginLog.Debug("Failed to allocate memory for part");
+                IMemorySpace.Free(partsList, (ulong)sizeof(AtkUldPartsList));
+                vrTargetCursor->AtkResNode.Destroy(true);
+            }
+
+            part->U = 0;
+            part->V = 0;
+            part->Width = 189;
+            part->Height = 330;
+
+            partsList->Parts = part;
+
+            var asset = (AtkUldAsset*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkUldAsset), 8);
+            if (asset == null)
+            {
+                PluginLog.Log("Failed to allocate memory for asset");
+                IMemorySpace.Free(part, (ulong)sizeof(AtkUldPart));
+                IMemorySpace.Free(partsList, (ulong)sizeof(AtkUldPartsList));
+                vrTargetCursor->AtkResNode.Destroy(true);
+            }
+
+            asset->Id = 0;
+            asset->AtkTexture.Ctor();
+
+            part->UldAsset = asset;
+
+            vrTargetCursor->PartsList = partsList;
+
+            // glowing drg job icon
+            vrTargetCursor->LoadIconTexture(62404, 0);
+
+            return true;
+        }
+
+        public void FreeVRTargetCursor()
+        {
+            if(vrTargetCursor != null)
+            {
+                if (currentNPTarget != null)
+                    RemoveVRCursor(currentNPTarget);
+
+                currentNPTarget = null;
+
+                IMemorySpace.Free(vrTargetCursor->PartsList->Parts, (ulong)sizeof(AtkUldPart));
+                IMemorySpace.Free(vrTargetCursor->PartsList, (ulong)sizeof(AtkUldPartsList));
+                vrTargetCursor->AtkResNode.Destroy(true);
+                vrTargetCursor = null;
+            }
+        }
+
+        public void AddVRCursor(NamePlateObject* nameplate)
+        {
+            if(nameplate != null && vrTargetCursor != null)
+            {
+                var npComponent = nameplate->RootNode->Component;
+
+                var lastChild = npComponent->UldManager.RootNode;
+                while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;
+
+                //var nextChild = lastChild;
+                //PluginLog.Log($"RootNode {(IntPtr)lastChild}");
+                //while (lastChild->PrevSiblingNode != null)
+                //{
+                //    PluginLog.Log($"prevSibling {(IntPtr)lastChild}");
+                //    if (lastChild->NextSiblingNode != null)
+                //    {
+                //        var tempNextChild = lastChild;
+                //        while (tempNextChild != null)
+                //        {
+                //            PluginLog.Log($"nextSibling {(IntPtr)tempNextChild}");
+                //            tempNextChild = tempNextChild->NextSiblingNode;
+                //        }
+                //        PluginLog.Log("");
+                //    }
+                //    lastChild = lastChild->PrevSiblingNode;
+                //}
+                //
+                //PluginLog.Log("\n");
+
+
+                lastChild->PrevSiblingNode = (AtkResNode*)vrTargetCursor;
+                vrTargetCursor->AtkResNode.NextSiblingNode = lastChild;
+                vrTargetCursor->AtkResNode.ParentNode = (AtkResNode*)nameplate->RootNode;
+
+                npComponent->UldManager.UpdateDrawNodeList();
+            }
+        }
+
+        public void RemoveVRCursor(NamePlateObject* nameplate)
+        {
+            if (nameplate != null && vrTargetCursor != null)
+            {
+                var npComponent = nameplate->RootNode->Component;
+
+                var lastChild = npComponent->UldManager.RootNode;
+                while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;
+
+                if(lastChild == vrTargetCursor)
+                {
+                    lastChild->NextSiblingNode->PrevSiblingNode = null;
+                   
+                    vrTargetCursor->AtkResNode.NextSiblingNode = null;
+                    vrTargetCursor->AtkResNode.ParentNode = null;
+
+                    npComponent->UldManager.UpdateDrawNodeList();
+                }
+                else
+                {
+                    PluginLog.Error("RemoveVRCursor: lastChild != vrTargetCursor");
+                }
+            }
+        }
+
+        public void SetVRCursor(NamePlateObject* nameplate)
+        {
+            // nothing to do!
+            if (currentNPTarget == nameplate)
+                return;
+
+            if(vrTargetCursor != null)
+            {
+                if(currentNPTarget != null)
+                {
+                    RemoveVRCursor(currentNPTarget);
+                    currentNPTarget = null;
+                }
+
+                if(nameplate != null)
+                {
+                    AddVRCursor(nameplate);
+                    currentNPTarget = nameplate;
                 }
             }
         }
@@ -374,6 +552,8 @@ namespace xivr
                 gameProjectionMatrix[1] = Matrix4x4.Identity;
                 eyeOffsetMatrix[0] = Matrix4x4.Identity;
                 eyeOffsetMatrix[1] = Matrix4x4.Identity;
+
+                FreeVRTargetCursor();
 
                 UnsetDX11();
 
@@ -1022,9 +1202,11 @@ namespace xivr
                     //targetAddon->RootNode->SetUseDepthBasedPriority(true);
                 }
 
+                SetupVRTargetCursor(a);
+
                 for (byte i = 0; i < NamePlateCount; i++)
                 {
-                    AddonNamePlate.NamePlateObject* npObj = &a->NamePlateObjectArray[i];
+                    NamePlateObject* npObj = &a->NamePlateObjectArray[i];
                     AtkComponentBase* npComponent = npObj->RootNode->Component;
 
                     for (int j = 0; j < npComponent->UldManager.NodeListCount; j++)
@@ -1034,6 +1216,28 @@ namespace xivr
                     }
 
                     npObj->RootNode->Component->UldManager.UpdateDrawNodeList();
+                }
+
+                bool foundTarget = false;
+                var framework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
+                var ui3DModule = framework->GetUiModule()->GetUI3DModule();
+
+                for (int i = 0; i < ui3DModule->NamePlateObjectInfoCount; i++)
+                {
+                    var objectInfo = ((UI3DModule.ObjectInfo**)ui3DModule->NamePlateObjectInfoPointerArray)[i];
+
+                    if (objectInfo->GameObject->TargetStatus == 2)
+                    {
+                        foundTarget = true;
+                        NamePlateObject* npObj = &a->NamePlateObjectArray[objectInfo->NamePlateIndex];
+                        SetVRCursor(npObj);
+                        break;
+                    }
+                }
+
+                if (foundTarget == false)
+                {
+                    SetVRCursor(null);
                 }
             }
 
