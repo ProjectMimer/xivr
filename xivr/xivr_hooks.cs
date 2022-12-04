@@ -390,27 +390,6 @@ namespace xivr
                 var lastChild = npComponent->UldManager.RootNode;
                 while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;
 
-                //var nextChild = lastChild;
-                //PluginLog.Log($"RootNode {(IntPtr)lastChild}");
-                //while (lastChild->PrevSiblingNode != null)
-                //{
-                //    PluginLog.Log($"prevSibling {(IntPtr)lastChild}");
-                //    if (lastChild->NextSiblingNode != null)
-                //    {
-                //        var tempNextChild = lastChild;
-                //        while (tempNextChild != null)
-                //        {
-                //            PluginLog.Log($"nextSibling {(IntPtr)tempNextChild}");
-                //            tempNextChild = tempNextChild->NextSiblingNode;
-                //        }
-                //        PluginLog.Log("");
-                //    }
-                //    lastChild = lastChild->PrevSiblingNode;
-                //}
-                //
-                //PluginLog.Log("\n");
-
-
                 lastChild->PrevSiblingNode = (AtkResNode*)vrTargetCursor;
                 vrTargetCursor->AtkResNode.NextSiblingNode = lastChild;
                 vrTargetCursor->AtkResNode.ParentNode = (AtkResNode*)nameplate->RootNode;
