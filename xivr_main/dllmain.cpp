@@ -1,8 +1,9 @@
 #include "framework.h"
 #include <algorithm>
 #include <iostream>
-#include <fstream>
-std::ofstream myfile;
+#include <sstream>
+
+std::stringstream outputLog;
 stDevice* device = nullptr;
 stRenderTargetManager* rtManager = nullptr;
 D3D11_TEXTURE2D_DESC BackBufferDesc;
@@ -33,11 +34,13 @@ BasicRenderer* rend = new BasicRenderer(&cfg);
 void InitInstance(HANDLE);
 void ExitInstance();
 void forceFlush();
-void CreateBackbufferClone();
+bool CreateBackbufferClone();
 void DestroyBackbufferClone();
 
-
 typedef void(__stdcall* UpdateControllerInput)(buttonLayout buttonId, vr::InputAnalogActionData_t analog, vr::InputDigitalActionData_t digital);
+typedef void(__stdcall* InternalLogging)(const char* value);
+
+InternalLogging PluginLog;
 
 extern "C"
 {
@@ -59,6 +62,8 @@ extern "C"
 
 	__declspec(dllexport) bool SetActiveJSON(const char*, int size);
 	__declspec(dllexport) void UpdateController(UpdateControllerInput controllerCallback);
+
+	__declspec(dllexport) void SetLogFunction(InternalLogging internalLogging);
 }
 
 
@@ -78,36 +83,25 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     return TRUE;
 }
 
-void OpenLogFile()
-{
-	if(logging)
-		myfile.open("./xivr_main_output.txt", std::ios::out | std::ios::app);
-}
-
-void CloseLogFile()
-{
-	if (myfile.is_open())
-		myfile.close();
-}
-
 void InitInstance(HANDLE hModule)
 {
-	OpenLogFile();
+	outputLog.str("");
 }
 
 void ExitInstance()
 {
-	CloseLogFile();
+	UnsetDX11();
 }
 
 void forceFlush()
 {
-	CloseLogFile();
-	OpenLogFile();
+	PluginLog(outputLog.str().c_str());
+	outputLog.str("");
 }
 
-void CreateBackbufferClone()
+bool CreateBackbufferClone()
 {
+	bool retVal = true;
 	HRESULT result = S_OK;
 	DestroyBackbufferClone();
 
@@ -117,18 +111,22 @@ void CreateBackbufferClone()
 		// Create the backbuffer copy based on the backbuffer description
 		//----
 		BackBufferCopy[i].textureDesc = BackBufferDesc;
-		BackBufferCopy[i].Create(device->Device, true, true);
+		if (!BackBufferCopy[i].Create(device->Device, true, true))
+		{
+			outputLog << BackBufferCopy[i].GetErrors();
+			retVal = false;
+		}
 
-		if (myfile.is_open())
+		if (cfg.vLog)
 		{
 			if (BackBufferCopy[i].pTexture == nullptr)
-				myfile << "Error creating backbufferCopy " << i << std::endl;
+				outputLog << "Error creating backbufferCopy " << i << std::endl;
 			if (BackBufferCopy[i].pRenderTarget == nullptr)
-				myfile << "Error creating backbufferCopyRTV " << i << std::endl;
+				outputLog << "Error creating backbufferCopyRTV " << i << std::endl;
 			if (BackBufferCopy[i].pShaderResource == nullptr)
-				myfile << "Error creating backbufferCopySRV " << i << std::endl;
+				outputLog << "Error creating backbufferCopySRV " << i << std::endl;
 			if (BackBufferCopy[i].pSharedHandle == nullptr)
-				myfile << "Error creating shared handle " << i << std::endl;
+				outputLog << "Error creating shared handle " << i << std::endl;
 		}
 
 		//----
@@ -136,16 +134,20 @@ void CreateBackbufferClone()
 		//----
 		BackBufferCopyShared[i].textureDesc = BackBufferCopy[i].textureDesc;
 		BackBufferCopyShared[i].pSharedHandle = BackBufferCopy[i].pSharedHandle;
-		BackBufferCopyShared[i].Create(devDX11.dev, true, true);
+		if (!BackBufferCopyShared[i].Create(devDX11.dev, true, true))
+		{
+			outputLog << BackBufferCopyShared[i].GetErrors();
+			retVal = false;
+		}
 
-		if (myfile.is_open())
+		if (cfg.vLog)
 		{
 			if (BackBufferCopyShared[i].pTexture == nullptr)
-				myfile << "Error creating BackBufferCopyShared " << i << std::endl;
+				outputLog << "Error creating BackBufferCopyShared " << i << std::endl;
 			if (BackBufferCopyShared[i].pRenderTarget == nullptr)
-				myfile << "Error creating BackBufferCopySharedRTV " << i << std::endl;
+				outputLog << "Error creating BackBufferCopySharedRTV " << i << std::endl;
 			if (BackBufferCopyShared[i].pShaderResource == nullptr)
-				myfile << "Error creating BackBufferCopySharedSRV " << i << std::endl;
+				outputLog << "Error creating BackBufferCopySharedSRV " << i << std::endl;
 		}
 
 		//----
@@ -154,21 +156,25 @@ void CreateBackbufferClone()
 		uiRenderTarget[i].textureDesc = BackBufferDesc;
 		uiRenderTarget[i].textureDesc.Width = BackBufferDesc.Width;
 		uiRenderTarget[i].textureDesc.Height = BackBufferDesc.Height;
-		uiRenderTarget[i].Create(device->Device, true, true);
+		if (!uiRenderTarget[i].Create(device->Device, true, true))
+		{
+			outputLog << uiRenderTarget[i].GetErrors();
+			retVal = false;
+		}
 
-		if (myfile.is_open())
+		if (cfg.vLog)
 		{
 			if (uiRenderTarget[i].pTexture == nullptr)
-				myfile << "Error creating RT" << std::endl;
+				outputLog << "Error creating RT" << std::endl;
 			if (uiRenderTarget[i].pRenderTarget == nullptr)
-				myfile << "Error creating RT RTV" << std::endl;
+				outputLog << "Error creating RT RTV" << std::endl;
 			if (uiRenderTarget[i].pShaderResource == nullptr)
-				myfile << "Error creating RT SRV" << std::endl;
+				outputLog << "Error creating RT SRV" << std::endl;
 			if (uiRenderTarget[i].pSharedHandle == nullptr)
-				myfile << "Error creating RT shared handle" << std::endl;
+				outputLog << "Error creating RT shared handle" << std::endl;
 		}
 	}
-
+	return retVal;
 }
 
 void DestroyBackbufferClone()
@@ -188,31 +194,27 @@ void DestroyBackbufferClone()
 
 __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned long long rtm)
 {
-	if(myfile.is_open())
-		myfile << "SetDX11:\n";
+	if(cfg.vLog)
+		outputLog << std::endl << "SetDX11:" << std::endl;
 	if (device == nullptr && enabled == false)
 	{
 		device = (stDevice*)struct_device;
 		rtManager = (stRenderTargetManager*)rtm;
-		if (myfile.is_open())
+		if (cfg.vLog)
 		{
-			myfile << "Device:\n";
-			myfile << std::hex << struct_device << "\n";
-			myfile << "factory: " << device->IDXGIFactory << std::endl;
-			myfile << "Dev: " << device->Device << std::endl;
-			myfile << "DevCon: " << device->DeviceContext << std::endl;
-			myfile << "Swap: " << device->SwapChain->DXGISwapChain << std::endl;
-			myfile << "BackBuffer: " << device->SwapChain->BackBuffer << std::endl;
-			myfile << std::dec << "device Size: " << device->width << "x" << device->height << " : " << device->newWidth << "x" << device->newHeight << std::endl;
-
-			forceFlush();
+			outputLog << std::hex << "Device:" << struct_device << std::endl;
+			outputLog << "factory: " << device->IDXGIFactory << std::endl;
+			outputLog << "Dev: " << device->Device << std::endl;
+			outputLog << "DevCon: " << device->DeviceContext << std::endl;
+			outputLog << "Swap: " << device->SwapChain->DXGISwapChain << std::endl;
+			outputLog << "BackBuffer: " << device->SwapChain->BackBuffer << std::endl;
+			outputLog << std::dec << "Device Size: " << device->width << "x" << device->height << " : " << device->newWidth << "x" << device->newHeight << std::endl;
 		}
 
 		device->SwapChain->BackBuffer->Texture->GetDesc(&BackBufferDesc);
-		if (myfile.is_open())
+		if (cfg.vLog)
 		{
-			myfile << std::dec << "BB Desc: u:" << BackBufferDesc.Usage << " f:" << BackBufferDesc.Format << " w:" << BackBufferDesc.Width << " h:" << BackBufferDesc.Height << std::endl;
-			forceFlush();
+			outputLog << std::dec << "BB Desc: u:" << BackBufferDesc.Usage << " f:" << BackBufferDesc.Format << " w:" << BackBufferDesc.Width << " h:" << BackBufferDesc.Height << std::endl;
 		}
 
 		screenLayout.SetFromSwapchain(device->SwapChain->DXGISwapChain);
@@ -222,53 +224,74 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		BackBuffer.textureDesc = BackBufferDesc;
 		BackBuffer.creationType = 2;
 		BackBuffer.pTexture = device->SwapChain->BackBuffer->Texture;
-		BackBuffer.CreateRenderTargetView(device->Device);
-
-		if (myfile.is_open())
+		if (!BackBuffer.CreateRenderTargetView(device->Device))
 		{
-			myfile << std::hex << "BackBuffer: " << device->SwapChain->BackBuffer << " : " << device->SwapChain->BackBuffer->Texture << std::endl;
-			myfile << std::dec << "BackBuff: " << device->SwapChain->BackBuffer->Width << " : " << device->SwapChain->BackBuffer->Height << " : " << device->SwapChain->BackBuffer->TextureFormat << " : " << std::hex << device->SwapChain->BackBuffer->Flags << std::endl;
+			outputLog << "Error creating BackBuffer RenderTargetView" << std::endl;
+			outputLog << BackBuffer.GetErrors();
 			forceFlush();
+			return false;
 		}
 
-		if (myfile.is_open())
-			myfile << "Starting VR .." << std::endl;
-		svr.StartVR();
-		if (myfile.is_open())
+		if (cfg.vLog)
 		{
-			myfile << ".. Done" << std::endl;
-			forceFlush();
+			outputLog << std::hex << "BackBuffer: " << device->SwapChain->BackBuffer << " : " << device->SwapChain->BackBuffer->Texture << std::endl;
+			outputLog << std::dec << "BackBuff: " << device->SwapChain->BackBuffer->Width << " : " << device->SwapChain->BackBuffer->Height << " : " << device->SwapChain->BackBuffer->TextureFormat << " : " << std::hex << device->SwapChain->BackBuffer->Flags << std::endl;
 		}
 
-		if (myfile.is_open())
-			myfile << "Starting Renderer ..";
-		rend->SetDevice(device->Device, device->DeviceContext);
-		if (myfile.is_open())
+		if (cfg.vLog)
+			outputLog << "Starting VR ..";
+		if (!svr.StartVR())
 		{
-			myfile << ".. Done" << std::endl;
+			outputLog << ".. Error starting VR";
 			forceFlush();
+			return false;
+		}
+		if (cfg.vLog)
+		{
+			outputLog << ".. Done" << std::endl;
 		}
 
-		if (myfile.is_open())
-			myfile << "Starting Second DX11 ..";
-		devDX11.createDevice();
-		if (myfile.is_open())
+		if (cfg.vLog)
+			outputLog << "Starting Renderer ..";
+		if (!rend->SetDevice(device->Device, device->DeviceContext))
 		{
-			myfile << ".. Done" << std::endl;
+			outputLog << ".. Error starting Renderer";
 			forceFlush();
+			return false;
+		}
+		if (cfg.vLog)
+		{
+			outputLog << ".. Done" << std::endl;
 		}
 
-		if (myfile.is_open())
-			myfile << "Creating BackBufferClone ..";
-		CreateBackbufferClone();
-		if (myfile.is_open())
+		if (cfg.vLog)
+			outputLog << "Starting Second DX11 ..";
+		if (!devDX11.createDevice())
 		{
-			myfile << ".. Done" << std::endl;
+			outputLog << ".. Error starting second DX11" << std::endl;
+			outputLog << devDX11.GetErrors();
 			forceFlush();
+			return false;
+		}
+		if (cfg.vLog)
+		{
+			outputLog << ".. Done" << std::endl;
 		}
 
-		if (myfile.is_open())
-			myfile << "Creating Textures ..";
+		if (cfg.vLog)
+			outputLog << "Creating BackBufferClone ..";
+		if (!CreateBackbufferClone())
+		{
+			outputLog << ".. Error creating BackBufferClone" << std::endl;
+			return false;
+		}
+		if (cfg.vLog)
+		{
+			outputLog << ".. Done" << std::endl;
+		}
+
+		if (cfg.vLog)
+			outputLog << "Creating Textures ..";
 		uiRenderTexture[0].uk1 = device->SwapChain->BackBuffer->uk1;
 		uiRenderTexture[0].uk5 = 0x990F0F0;
 		uiRenderTexture[0].Notifier = device->SwapChain->BackBuffer->Notifier;
@@ -290,14 +313,13 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		uiRenderTexture[1].Texture = uiRenderTarget[1].pTexture;
 		uiRenderTexture[1].ShaderResourceView = uiRenderTarget[1].pShaderResource;
 		uiRenderTexture[1].RenderTargetPtr = (unsigned long long)&uiRenderTarget[1].pRenderTarget;
-		if (myfile.is_open())
+		if (cfg.vLog)
 		{
-			myfile << ".. Done" << std::endl;
-			forceFlush();
+			outputLog << ".. Done" << std::endl;
 		}
 
-		if (myfile.is_open())
-			myfile << "Creating Viewport ..";
+		if (cfg.vLog)
+			outputLog << "Creating Viewport ..";
 		ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
@@ -305,18 +327,17 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		viewport.Height = BackBuffer.textureDesc.Height;
 		viewport.MinDepth = 0.0f;
 		viewport.MaxDepth = 0.0f;
-		if (myfile.is_open())
+		if (cfg.vLog)
 		{
-			myfile << ".. Done" << std::endl;
-			forceFlush();
+			outputLog << ".. Done" << std::endl;
 		}
 
 		setActionHandlesGame(&steamInput);
 		enabled = true;
 	}
-	if (myfile.is_open())
+	if (cfg.vLog)
 	{
-		myfile << "SetDX11 .. Done:\n";
+		outputLog << "SetDX11 .. Done:" << std::endl;
 		forceFlush();
 	}
 
@@ -327,36 +348,36 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 
 __declspec(dllexport) void UnsetDX11()
 {
-	if (myfile.is_open())
-		myfile << "### StopDX11" << std::endl;
+	if (cfg.vLog)
+		outputLog << std::endl << "StopDX11" << std::endl;
 	
-	if (myfile.is_open())
-		myfile << "Destroying BackBufferClone ..";
+	if (cfg.vLog)
+		outputLog << "Destroying BackBufferClone ..";
 	DestroyBackbufferClone();
-	if (myfile.is_open())
-		myfile << ".. Done" << std::endl;
+	if (cfg.vLog)
+		outputLog << ".. Done" << std::endl;
 
-	if (myfile.is_open())
-		myfile << "Releasing Renderer ..";
+	if (cfg.vLog)
+		outputLog << "Releasing Renderer ..";
 	rend->Release();
-	if (myfile.is_open())
-		myfile << ".. Done" << std::endl;
+	if (cfg.vLog)
+		outputLog << ".. Done" << std::endl;
 
-	if (myfile.is_open())
-		myfile << "Releasing Second DX11 ..";
+	if (cfg.vLog)
+		outputLog << "Releasing Second DX11 ..";
 	devDX11.Release();
-	if (myfile.is_open())
-		myfile << ".. Done" << std::endl;
+	if (cfg.vLog)
+		outputLog << ".. Done" << std::endl;
 
-	if (myfile.is_open())
-		myfile << "Stopping VR ..";
+	if (cfg.vLog)
+		outputLog << "Stopping VR ..";
 	svr.StopVR();
-	if (myfile.is_open())
-		myfile << ".. Done" << std::endl;
+	if (cfg.vLog)
+		outputLog << ".. Done" << std::endl;
 
 	device = nullptr;
-	if (myfile.is_open())
-		myfile << "StopDX11 ###" << std::endl;
+	if (cfg.vLog)
+		outputLog << "StopDX11" << std::endl;
 	forceFlush();
 	enabled = false;
 }
@@ -527,9 +548,6 @@ __declspec(dllexport) void ResizeWindow(HWND hwnd, int width, int height)
 		int width = clientRect.right - clientRect.left;
 		int height = clientRect.bottom - clientRect.top;
 
-		if (myfile.is_open())
-			myfile << std::dec << "ResizeWindow: " << clientRect.right << " x " << clientRect.bottom << std::endl;
-
 		AdjustWindowRect(&clientRect, GetWindowLongA(hwnd, GWL_STYLE), false);
 		SetWindowPos(hwnd, 0, 0, 0, width, height, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
 		SendMessageA(hwnd, WM_EXITSIZEMOVE, WPARAM(0), LPARAM(0));
@@ -665,4 +683,9 @@ __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCall
 				controllerCallback(buttonLayout::xbox_select, analogActionData, digitalActionData);
 		}
 	}
+}
+
+__declspec(dllexport) void SetLogFunction(InternalLogging internalLogging)
+{
+	PluginLog = internalLogging;
 }

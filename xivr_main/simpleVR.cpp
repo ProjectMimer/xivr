@@ -150,7 +150,7 @@ void simpleVR::Recenter()
 
 POINT simpleVR::GetBufferSize()
 {
-	return resolution;
+	return bufferSize;
 }
 
 void simpleVR::SetFramePose()

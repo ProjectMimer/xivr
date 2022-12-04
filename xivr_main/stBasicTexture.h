@@ -1,5 +1,6 @@
 #pragma once
 #include <d3d11_4.h>
+#include <sstream>
 
 struct stBasicTexture
 {
@@ -8,6 +9,7 @@ struct stBasicTexture
 	ID3D11ShaderResourceView* pShaderResource;
 	HANDLE pSharedHandle;
 	int creationType;
+	std::stringstream logError;
 
 	D3D11_TEXTURE2D_DESC textureDesc;
 
@@ -18,6 +20,7 @@ struct stBasicTexture
 		pShaderResource = nullptr;
 		pSharedHandle = nullptr;
 		creationType = 0;
+		logError.str("");
 
 		//----
 		// Creates a generic texture desc
@@ -40,63 +43,70 @@ struct stBasicTexture
 		textureDesc.Height = tHeight;
 	}
 
-	void Create(ID3D11Device* dev, bool rtv, bool srv)
+	bool Create(ID3D11Device* dev, bool rtv, bool srv)
 	{
+		bool retVal = true;
 		if (pSharedHandle)
-			CreateShared(dev, rtv, srv);
+			retVal = CreateShared(dev, rtv, srv);
 		else
-			CreateNew(dev, rtv, srv);
+			retVal = CreateNew(dev, rtv, srv);
+		return retVal;
 	}
 
-	void CreateNew(ID3D11Device* dev, bool rtv, bool srv)
+	bool CreateNew(ID3D11Device* dev, bool rtv, bool srv)
 	{
+		bool retVal = true;
 		HRESULT result = dev->CreateTexture2D(&textureDesc, NULL, &pTexture);
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to create new Texture2D", "Error", MB_OK);
-			return;
+			logError << "Failed to create new Texture2D" << std::endl;
+			retVal = false;
 		}
 		creationType = 1;
 
 		GetSharedHandle();
 
-		if (rtv)
-			CreateRenderTargetView(dev);
-		if (srv)
-			CreateShaderResourceView(dev);
+		if (retVal && rtv)
+			retVal = CreateRenderTargetView(dev);
+		if (retVal && srv)
+			retVal = CreateShaderResourceView(dev);
+		return retVal;
 	}
 
-	void CreateShared(ID3D11Device* dev, bool rtv, bool srv)
+	bool CreateShared(ID3D11Device* dev, bool rtv, bool srv)
 	{
+		bool retVal = true;
 		HRESULT result = dev->OpenSharedResource(pSharedHandle, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pTexture));
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to create shared Texture2D", "Error", MB_OK);
-			return;
+			logError << "Failed to create shared Texture2D" << std::endl;
+			retVal = false;
 		}
 		creationType = 2;
 
-		if (rtv)
-			CreateRenderTargetView(dev);
-		if (srv)
-			CreateShaderResourceView(dev);
+		if (retVal && rtv)
+			retVal = CreateRenderTargetView(dev);
+		if (retVal && srv)
+			retVal = CreateShaderResourceView(dev);
+		return retVal;
 	}
 
-	void GetSharedHandle()
+	bool GetSharedHandle()
 	{
 		if (pTexture)
 		{
 			IDXGIResource* renderResource(NULL);
 			HRESULT result = pTexture->QueryInterface(__uuidof(IDXGIResource), (LPVOID*)&renderResource);
 			if (FAILED(result)) {
-				MessageBoxA(0, "Failed to get Shared Resource", "Error", MB_OK);
-				return;
+				logError << "Failed to get Shared Resource" << std::endl;
+				return false;
 			}
 			renderResource->GetSharedHandle(&pSharedHandle);
 			renderResource->Release();
 			renderResource = nullptr;
 		}
+		return false;
 	}
 
-	void CreateRenderTargetView(ID3D11Device* dev)
+	bool CreateRenderTargetView(ID3D11Device* dev)
 	{
 		//----
 		// Creates a generic render target desc
@@ -108,9 +118,14 @@ struct stBasicTexture
 		renderTargetViewDesc.Texture2D.MipSlice = 0;
 
 		HRESULT result = dev->CreateRenderTargetView(pTexture, &renderTargetViewDesc, &pRenderTarget);
+		if (FAILED(result)) {
+			logError << "Failed to create RenderTarget View" << std::endl;
+			return false;
+		}
+		return true;
 	}
 
-	void CreateShaderResourceView(ID3D11Device* dev)
+	bool CreateShaderResourceView(ID3D11Device* dev)
 	{
 		//----
 		// Creates a generic shader resource desc
@@ -123,6 +138,11 @@ struct stBasicTexture
 		shaderResourceViewDesc.Texture2D.MipLevels = 1;
 
 		HRESULT result = dev->CreateShaderResourceView(pTexture, &shaderResourceViewDesc, &pShaderResource);
+		if (FAILED(result)) {
+			logError << "Failed to create ShaderResource View" << std::endl;
+			return false;
+		}
+		return true;
 	}
 
 	void Release()
@@ -133,6 +153,13 @@ struct stBasicTexture
 		if (pTexture) { pTexture->Release();  pTexture = nullptr; }
 		pSharedHandle = nullptr;
 		creationType = 0;
+	}
+
+	std::string GetErrors()
+	{
+		std::string curLog = logError.str();
+		logError.str("");
+		return curLog;
 	}
 };
 

@@ -30,6 +30,9 @@ namespace xivr
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     public delegate void UpdateControllerInput(ActionButtonLayout buttonId, InputAnalogActionData analog, InputDigitalActionData digital);
 
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    public delegate void InternalLogging(String value);
+
 
     [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
     public sealed class HandleStatus : System.Attribute
@@ -132,8 +135,8 @@ namespace xivr
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UpdateController(UpdateControllerInput controllerCallback);
 
-
-
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void SetLogFunction(InternalLogging internalLogging);
 
         byte[] GetThreadedDataASM =
             {
@@ -174,6 +177,7 @@ namespace xivr
         private int[] runCount = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         UpdateControllerInput controllerCallback;
+        InternalLogging internalLogging;
 
         Matrix4x4 curViewMatrix = Matrix4x4.Identity;
         Matrix4x4 hmdMatrix = Matrix4x4.Identity;
@@ -240,7 +244,11 @@ namespace xivr
                     HandleStatusDelegate handle = (HandleStatusDelegate)HandleStatusDelegate.CreateDelegate(typeof(HandleStatusDelegate), this, method);
 
                     if (!functionList.ContainsKey(key))
+                    {
+                        if (xivr.cfg.data.vLog)
+                            PluginLog.Log($"SetFunctionHandles Adding {key}");
                         functionList.Add(key, handle);
+                    }
                 }
             }
         }
@@ -264,6 +272,8 @@ namespace xivr
 
                     if (!inputList.ContainsKey(key))
                     {
+                        if (xivr.cfg.data.vLog)
+                            PluginLog.Log($"SetInputHandles Adding {key}");
                         inputList.Add(key, handle);
                         inputState.Add(key, false);
                     }
@@ -273,12 +283,15 @@ namespace xivr
 
         public bool Initialize()
         {
+            if (xivr.cfg.data.vLog)
+                PluginLog.Log($"Initialize A {initalized} {hooksSet}");
+
             if (initalized == false)
             {
                 SignatureHelper.Initialise(this);
 
                 BaseAddress = (UInt64)Process.GetCurrentProcess()?.MainModule?.BaseAddress;
-                PluginLog.Log($"Initialize {BaseAddress:X}");
+                PluginLog.Log($"BaseAddress {BaseAddress:X}");
 
                 IntPtr tmpAddress = DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.CameraManagerInstance);
                 PluginLog.Log($"CameraManagerInstance: {*(UInt64*)tmpAddress:X} {(*(UInt64*)tmpAddress - BaseAddress):X}");
@@ -297,16 +310,29 @@ namespace xivr
                         inputList[buttonId](analog, digital);
                 };
 
+
+                internalLogging = (value) =>
+                {
+                    PluginLog.Log($"xivr_main: {value}");
+                };
+
+                SetLogFunction(internalLogging);
+
                 initalized = true;
             }
+            if (xivr.cfg.data.vLog)
+                PluginLog.Log($"Initialize B {initalized} {hooksSet}");
+
             return initalized;
         }
 
         public bool Start()
         {
+            if(xivr.cfg.data.vLog)
+                PluginLog.Log($"Start A {initalized} {hooksSet}");
             if (initalized == true && hooksSet == false && VR_IsHmdPresent())
             {
-                if(!SetDX11((IntPtr)FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance(), *(IntPtr*)RenderTargetManagerAddress))
+                if(!SetDX11((IntPtr)Device.Instance(), *(IntPtr*)RenderTargetManagerAddress))
                     return false;
 
                 string filePath = Path.Join(DalamudApi.PluginInterface.AssemblyLocation.DirectoryName, "config", "actions.json");
@@ -326,13 +352,16 @@ namespace xivr
 
                 hooksSet = true;
                 PrintEcho("Starting VR.");
-                PluginLog.Log("Starting VR.");
             }
+            if (xivr.cfg.data.vLog)
+                PluginLog.Log($"Start B {initalized} {hooksSet}");
             return hooksSet;
         }
 
         public void Stop()
         {
+            if (xivr.cfg.data.vLog)
+                PluginLog.Log($"Stop A {initalized} {hooksSet}");
             if (hooksSet == true)
             {
                 //----
@@ -350,8 +379,9 @@ namespace xivr
 
                 hooksSet = false;
                 PrintEcho("Stopping VR.");
-                PluginLog.Log("Stopping VR.");
             }
+            if (xivr.cfg.data.vLog)
+                PluginLog.Log($"Stop B {initalized} {hooksSet}");
         }
 
         int timer = 100;
@@ -420,8 +450,12 @@ namespace xivr
 
         public void Dispose()
         {
+            if (xivr.cfg.data.vLog)
+                PluginLog.Log($"Dispose A {initalized} {hooksSet}");
             getThreadedDataHandle.Free();
             initalized = false;
+            if (xivr.cfg.data.vLog)
+                PluginLog.Log($"Dispose B {initalized} {hooksSet}");
         }
 
         private void AddClearCommand()
@@ -760,8 +794,8 @@ namespace xivr
             if (frfCalculateViewMatrix == false)
             {
                 frfCalculateViewMatrix = true;
-                if (curEye == 0 || (xivr.cfg.data.swapEyes && swapEyes[curEye] == 0))
-                    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out curViewMatrix);
+                //if (curEye == 0 || (xivr.cfg.data.swapEyes && swapEyes[curEye] == 0))
+                //    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out curViewMatrix);
 
                 if (enableVR && enableFloatingHUD && forceFloatingScreen == false)
                 {
@@ -792,6 +826,7 @@ namespace xivr
                     else
                         hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
 
+                    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out curViewMatrix);
                     Matrix4x4 gameViewMatrix = curViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
                     SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, gameViewMatrix);
                 }

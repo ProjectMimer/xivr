@@ -71,7 +71,7 @@ namespace xivr
                     try
                     {
                         Process[] pname = Process.GetProcessesByName("vrserver");
-                        PluginLog.LogError($"ProcessName {pname.Length}");
+                        PluginLog.LogError($"SteamVR Active: {pname.Length}");
                         if (pname.Length > 0 && cfg.data.isAutoEnabled)
                         {
                             cfg.data.isEnabled = true;
@@ -81,7 +81,7 @@ namespace xivr
                         {
                             Marshal.PrelinkAll(typeof(xivr_hooks));
                             FindWindowHandle();
-                            counter = 500;
+                            counter = 50;
                             UpdateConfiguration(cfg.data);
                             pluginReady = xivr_hooks.Initialize();
                         }
@@ -96,7 +96,7 @@ namespace xivr
 
         public void ToggleConfig() => PluginUI.isVisible ^= true;
 
-        private const string subcommands = "/xivr [ on | off ]";
+        private const string subcommands = "/xivr [ on | off | recenter | hlock | vlock | horizon ]";
         [Command("/xivr")]
         [HelpMessage("Opens / closes the config. Additional usage: " + subcommands)]
         private unsafe void CheckCommands(string command, string argument)
@@ -282,24 +282,27 @@ namespace xivr
                     //----
                     // Give the game a few seconds to update the buffers before enabling vr
                     //----
-                    if (counter == 500)
+                    if (counter == 50)
                     {
+                        origWindowSize = xivr_hooks.GetWindowSize();
+                        if(cfg.data.vLog)
+                            PluginLog.Log($"Saving ScreenSize {origWindowSize.X}x{origWindowSize.Y}");
+
                         if (cfg.data.autoResize && cfg.data.hmdWidth != 0 && cfg.data.hmdHeight != 0)
                         {
                             xivr_hooks.WindowResize(GameWindowHandle, cfg.data.hmdWidth, cfg.data.hmdHeight);
-                            PluginLog.Log($"Resizing window to: {cfg.data.hmdWidth}, {cfg.data.hmdHeight}");
+                            PluginLog.Log($"Resizing window to: {cfg.data.hmdWidth}x{cfg.data.hmdHeight} from {origWindowSize.X}x{origWindowSize.Y}");
                         }
                         counter--;
                     }
-                    else if (counter == 150)
+                    else if (counter == 25)
                     {
                         xivr_hooks.Start();
-                        origWindowSize = xivr_hooks.GetWindowSize();
                         Point hmdSize = xivr_hooks.GetBufferSize();
-                        cfg.data.hmdWidth = (hmdSize.X / 2);
+                        cfg.data.hmdWidth = hmdSize.X;
                         cfg.data.hmdHeight = hmdSize.Y;
                         cfg.Save();
-                        PluginLog.Log($"Saving HMD Size {cfg.data.hmdWidth} {cfg.data.hmdHeight}");
+                        PluginLog.Log($"Saving HMD Size {cfg.data.hmdWidth}x{cfg.data.hmdHeight}");
                         counter--;
                     }
                     else if (counter == 0)
@@ -317,9 +320,9 @@ namespace xivr
                 {
                     xivr_hooks.Stop();
                     xivr_hooks.WindowResize(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
-                    PluginLog.Log($"Resizing window to: {origWindowSize.X}, {origWindowSize.Y}");
+                    PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
                     isEnabled = false;
-                    counter = 500;
+                    counter = 50;
                 }
                 if (cfg.data.runRecenter == true)
                 {
@@ -345,10 +348,9 @@ namespace xivr
             if (pluginReady)
             {
                 xivr_hooks.Stop();
-                xivr_hooks.WindowResize(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
-                PluginLog.Log($"Resizing window to: {origWindowSize.X}, {origWindowSize.Y}");
                 xivr_hooks.Dispose();
-
+                xivr_hooks.WindowResize(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
+                PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
             }
             DalamudApi.TitleScreenMenu.RemoveEntry(xivrMenuEntry);
             DalamudApi.Framework.Update -= Update;
@@ -356,6 +358,5 @@ namespace xivr
             DalamudApi.PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
             DalamudApi.Dispose();
         }
-
     }
 }

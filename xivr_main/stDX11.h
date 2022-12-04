@@ -1,6 +1,7 @@
 #pragma once
 #include <dxgi1_2.h>
 #include <d3d11.h>
+#include <sstream>
 
 struct stDX11
 {
@@ -15,6 +16,8 @@ struct stDX11
 
 	IDXGIFactory2* factory;
 	DWORD					occlusionCookie;
+
+	std::stringstream logError;
 
 	stDX11() {
 		FeatureLevel = D3D_FEATURE_LEVEL::D3D_FEATURE_LEVEL_11_0;
@@ -31,6 +34,7 @@ struct stDX11
 		factory = nullptr;
 		backbuffer = nullptr;
 		occlusionCookie = 0;
+		logError.str("");
 	}
 
 	~stDX11() {
@@ -45,15 +49,16 @@ struct stDX11
 #endif
 		HRESULT result = CreateDXGIFactory1(__uuidof(IDXGIFactory2), (void**)&factory);
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to create DXGIFactory1. (sDX11)", "Error", MB_OK);
+			logError << "(sDX11) Failed to create DXGIFactory1." << std::endl;
 			return false;
 		}
 
 		result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, creationFlags, FeatureLevels, NumFeatureLevels, D3D11_SDK_VERSION, &dev, &FeatureLevel, &devcon);
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to create D3D11 device. (sDX11)", "Error", MB_OK);
+			logError << "(sDX11) Failed to create D3D11 device." << std::endl;;
 			return false;
 		}
+
 		return true;
 	}
 
@@ -67,7 +72,7 @@ struct stDX11
 		IDXGIDevice* DxgiDevice = nullptr;
 		result = dev->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&DxgiDevice));
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to QI for DXGI device. (sDX11)", "Error", MB_OK);
+			logError << "(sDX11) Failed to QI for DXGI device." << std::endl;
 			return false;
 		}
 
@@ -77,7 +82,7 @@ struct stDX11
 		DxgiDevice->Release();
 		DxgiDevice = nullptr;
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to get parent DXGI adapter. (sDX11)", "Error", MB_OK);
+			logError << "(sDX11) Failed to get parent DXGI adapter." << std::endl;
 			return false;
 		}
 
@@ -86,7 +91,7 @@ struct stDX11
 		DxgiAdapter->Release();
 		DxgiAdapter = nullptr;
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to get parent DXGI factory. (sDX11)", "Error", MB_OK);
+			logError << "(sDX11) Failed to get parent DXGI factory." << std::endl;
 			return false;
 		}
 
@@ -94,7 +99,7 @@ struct stDX11
 			// Register for occlusion status windows message
 			result = factory->RegisterOcclusionStatusWindow(hWnd, OCCLUSION_STATUS_MSG, &occlusionCookie);
 			if (FAILED(result)) {
-				MessageBoxA(0, "Failed to register for occlusion message. (sDX11)", "Error", MB_OK);
+				logError << "(sDX11) Failed to register for occlusion message." << std::endl;
 				return false;
 			}
 		}
@@ -103,7 +108,7 @@ struct stDX11
 			// Disable the ALT-ENTER shortcut for entering full-screen mode
 			result = factory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER);
 			if (FAILED(result)) {
-				MessageBoxA(0, "Failed to disable Alt-Enter. (sDX11)", "Error", MB_OK);
+				logError << "(sDX11) Failed to disable Alt-Enter." << std::endl;;
 				return false;
 			}
 		}
@@ -133,7 +138,7 @@ struct stDX11
 		result = factory->CreateSwapChainForHwnd(dev, hWnd, &scd, &scfd, nullptr, &swapchain);
 
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to create swapchain (sDX11)", "Error", MB_OK);
+			logError << "(sDX11) Failed to create swapchain" << std::endl;
 			return false;
 		}
 
@@ -147,7 +152,7 @@ struct stDX11
 		ID3D11Texture2D* pBackBuffer;
 		result = swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to get backbuffer for render target. (sDX11)", "Error", MB_OK);
+			logError << "(sDX11) Failed to get backbuffer for render target." << std::endl;
 			return false;
 		}
 
@@ -155,7 +160,7 @@ struct stDX11
 		result = dev->CreateRenderTargetView(pBackBuffer, NULL, &backbuffer);
 		pBackBuffer->Release();
 		if (FAILED(result)) {
-			MessageBoxA(0, "Failed to create backbuffer target. (sDX11)", "Error", MB_OK);
+			logError << "(sDX11) Failed to create backbuffer target." << std::endl;
 			return false;
 		}
 		return true;
@@ -166,13 +171,19 @@ struct stDX11
 	}
 
 	void Release() {
-		if (backbuffer) { backbuffer->Release();		backbuffer = nullptr; }
+		if (backbuffer) { backbuffer->Release(); backbuffer = nullptr; }
 
-		if (factory) { factory->Release();			factory = nullptr; }
-		if (swapchain) { swapchain->Release();			swapchain = nullptr; }
-		if (devcon) { devcon->Release();			devcon = nullptr; }
-		if (dev) { dev->Release();				dev = nullptr; }
+		if (factory) { factory->Release(); factory = nullptr; }
+		if (swapchain) { swapchain->Release(); swapchain = nullptr; }
+		if (devcon) { devcon->Release(); devcon = nullptr; }
+		if (dev) { dev->Release(); dev = nullptr; }
 		return;
 	}
 
+	std::string GetErrors()
+	{
+		std::string curLog = logError.str();
+		logError.str("");
+		return curLog;
+	}
 };

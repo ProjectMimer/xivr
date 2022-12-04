@@ -4,8 +4,8 @@ void setActionHandlesGame(inputController* input)
 {
 	vr::EVRInputError iError = vr::VRInputError_None;
 	iError = vr::VRInput()->GetActionSetHandle("/actions/game", &input->game.setHandle);
-	if (iError != 0)
-	{
+	//if (iError != 0)
+	//{
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/movement", &input->game.movement);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/rotation", &input->game.rotation);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/lefthand", &input->game.lefthand);
@@ -53,6 +53,6 @@ void setActionHandlesGame(inputController* input)
 
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/xbox_start", &input->game.xbox_start);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/xbox_select", &input->game.xbox_select);
-	}
+	//}
 }
 
