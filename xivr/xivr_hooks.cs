@@ -23,9 +23,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
-using Dalamud.Game.ClientState.Party;
 using static FFXIVClientStructs.FFXIV.Client.UI.AddonNamePlate;
-using Lumina.Excel.GeneratedSheets;
 
 namespace xivr
 {
