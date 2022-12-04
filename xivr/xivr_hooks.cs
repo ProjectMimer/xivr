@@ -18,6 +18,7 @@ using xivr.Structures;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.System;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -304,7 +305,7 @@ namespace xivr
             vrTargetCursor->Ctor();
 
             vrTargetCursor->AtkResNode.Type = NodeType.Image;
-            vrTargetCursor->AtkResNode.Flags = (short)(NodeFlags.AnchorLeft | NodeFlags.AnchorTop | NodeFlags.UseDepthBasedPriority);
+            vrTargetCursor->AtkResNode.Flags = (short)NodeFlags.UseDepthBasedPriority;
             vrTargetCursor->AtkResNode.DrawFlags = 0;
 
             vrTargetCursor->WrapMode = 1;
@@ -331,8 +332,8 @@ namespace xivr
 
             part->U = 0;
             part->V = 0;
-            part->Width = 189;
-            part->Height = 330;
+            part->Width = 0;
+            part->Height = 0;
 
             partsList->Parts = part;
 
@@ -354,6 +355,14 @@ namespace xivr
 
             // glowing drg job icon
             vrTargetCursor->LoadIconTexture(62404, 0);
+
+            vrTargetCursor->AtkResNode.SetPositionShort(45, 20);
+            vrTargetCursor->AtkResNode.SetScale(2, 2);
+
+            vrTargetCursor->AtkResNode.SetWidth(100);
+            vrTargetCursor->AtkResNode.SetHeight(40);
+
+            vrTargetCursor->AtkResNode.ToggleVisibility(true);
 
             return true;
         }
@@ -1218,7 +1227,7 @@ namespace xivr
                     npObj->RootNode->Component->UldManager.UpdateDrawNodeList();
                 }
 
-                bool foundTarget = false;
+                NamePlateObject* selectedNamePlate = null;
                 var framework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
                 var ui3DModule = framework->GetUiModule()->GetUI3DModule();
 
@@ -1226,19 +1235,16 @@ namespace xivr
                 {
                     var objectInfo = ((UI3DModule.ObjectInfo**)ui3DModule->NamePlateObjectInfoPointerArray)[i];
 
-                    if (objectInfo->GameObject->TargetStatus == 2)
-                    {
-                        foundTarget = true;
-                        NamePlateObject* npObj = &a->NamePlateObjectArray[objectInfo->NamePlateIndex];
-                        SetVRCursor(npObj);
+                    TargetSystem* targSys = (TargetSystem*)DalamudApi.TargetManager.Address;
+                    if (objectInfo->GameObject == targSys->Target)
+                    {                        
+                        selectedNamePlate = &a->NamePlateObjectArray[objectInfo->NamePlateIndex];
                         break;
                     }
                 }
 
-                if (foundTarget == false)
-                {
-                    SetVRCursor(null);
-                }
+                SetVRCursor(selectedNamePlate);
+                
             }
 
             NamePlateDrawHook!.Original(a);
