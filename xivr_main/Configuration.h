@@ -26,4 +26,5 @@ struct Configuration
     int hmdHeight;
     bool autoResize;
     float ipdOffset;
+    bool vLog;
 };

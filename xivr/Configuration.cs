@@ -36,6 +36,7 @@ namespace xivr
             [MarshalAs(UnmanagedType.I4)] public int hmdHeight;
             [MarshalAs(UnmanagedType.U1)] public bool autoResize;
             [MarshalAs(UnmanagedType.R4)] public float ipdOffset;
+            [MarshalAs(UnmanagedType.U1)] public bool vLog;
 
             public cfgData()
             {
@@ -59,8 +60,9 @@ namespace xivr
                 motioncontrol = true;
                 hmdWidth = 0;
                 hmdHeight = 0;
-                autoResize = false;
+                autoResize = true;
                 ipdOffset = 0.0f;
+                vLog = false;
             }
         }
 

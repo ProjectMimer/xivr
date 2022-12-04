@@ -14,9 +14,10 @@ namespace xivr
             if (!isVisible)
                 return;
 
-            ImGui.SetNextWindowSize(new Vector2(500, 850) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
-            ImGui.SetNextWindowSizeConstraints(new Vector2(500, 850) * ImGuiHelpers.GlobalScale, new Vector2(9999));
-            if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+            ImGui.SetNextWindowSize(new Vector2(320, 800) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowSizeConstraints(new Vector2(320, 800) * ImGuiHelpers.GlobalScale, new Vector2(9999));
+            //if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+            if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             {
                 ImGui.BeginChild("VR", new Vector2(300, 150) * ImGuiHelpers.GlobalScale, true);
 
@@ -36,6 +37,11 @@ namespace xivr
                 }
                 if (ImGui.Button("Recenter"))
                     xivr.cfg.data.runRecenter = true;
+
+                if (ImGui.Checkbox("Verbose Logs", ref xivr.cfg.data.vLog))
+                {
+                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
+                }
 
 
                 ImGui.EndChild();
@@ -127,8 +133,8 @@ namespace xivr
 
             ImGui.BeginChild("UI", new Vector2(300, 250) * ImGuiHelpers.GlobalScale, true);
 
-            ImGui.Text("Z Offset"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:zoff", ref uiOffsetZ);
-            ImGui.Text("Z Scale"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:zscale", ref uiOffsetScale);
+            ImGui.Text("UI Distance"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:zoff", ref uiOffsetZ);
+            ImGui.Text("UI Size"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:zscale", ref uiOffsetScale);
             ImGui.Text("IPD Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:ipdoff", ref ipdOffset, -10, 10, "%f");
 
             ImGui.Text("Swap Eyes"); ImGui.SameLine(); ImGui.Checkbox("##DrawUISetings:swapeyes", ref swapEyes);
