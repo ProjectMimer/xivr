@@ -53,6 +53,16 @@ namespace xivr
                     xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
                 }
 
+                if (ImGui.Checkbox("Enable first person headset locomotion", ref xivr.cfg.data.hmdloc))
+                {
+                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
+                }
+
+                if (ImGui.Checkbox("First person locomotion allow vertical movement", ref xivr.cfg.data.vertloc))
+                {
+                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
+                }
+
                 if (ImGui.Checkbox("Enable motion controllers", ref xivr.cfg.data.motioncontrol))
                 {
                     xivr.cfg.Save(); xivr.Plugin.doUpdate = true;

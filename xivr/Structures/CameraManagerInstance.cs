@@ -7,6 +7,10 @@ namespace xivr.Structures
     public unsafe struct CameraManagerInstance
     {
         [FieldOffset(0x50)] public UInt64 CameraIndex;
-        [FieldOffset(0x58)] public UInt64 CameraOffset;
+        [FieldOffset(0x58)] public RawGameCamera* Camera0;
+        [FieldOffset(0x60)] public RawGameCamera* Camera1;
+        [FieldOffset(0x68)] public RawGameCamera* Camera2;
+        [FieldOffset(0x70)] public RawGameCamera* Camera3;
+        [FieldOffset(0x78)] public RawGameCamera* Camera4;
     }
 }

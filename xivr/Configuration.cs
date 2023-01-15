@@ -37,6 +37,8 @@ namespace xivr
             [MarshalAs(UnmanagedType.U1)] public bool autoResize;
             [MarshalAs(UnmanagedType.R4)] public float ipdOffset;
             [MarshalAs(UnmanagedType.U1)] public bool vLog;
+            [MarshalAs(UnmanagedType.U1)] public bool hmdloc;
+            [MarshalAs(UnmanagedType.U1)] public bool vertloc;
 
             public cfgData()
             {
@@ -63,6 +65,8 @@ namespace xivr
                 autoResize = true;
                 ipdOffset = 0.0f;
                 vLog = false;
+                hmdloc = false;
+                vertloc = false;
             }
         }
 

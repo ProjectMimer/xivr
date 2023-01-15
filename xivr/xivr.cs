@@ -33,12 +33,13 @@ namespace xivr
 
         private readonly bool pluginReady = false;
         private bool isEnabled = false;
+        private bool hasResized = false;
         private bool firstRun = false;
         private UInt64 counter = 0;
         private IntPtr GameWindowHandle = IntPtr.Zero;
         private Point origWindowSize = new Point(0, 0);
         public bool doUpdate = false;
-
+        
 
         public unsafe xivr(DalamudPluginInterface pluginInterface, TitleScreenMenu titleScreenMenu)
         {
@@ -291,6 +292,7 @@ namespace xivr
                         if (cfg.data.autoResize && cfg.data.hmdWidth != 0 && cfg.data.hmdHeight != 0)
                         {
                             xivr_hooks.WindowResize(GameWindowHandle, cfg.data.hmdWidth, cfg.data.hmdHeight);
+                            hasResized = true;
                             PluginLog.Log($"Resizing window to: {cfg.data.hmdWidth}x{cfg.data.hmdHeight} from {origWindowSize.X}x{origWindowSize.Y}");
                         }
                         counter--;
@@ -319,8 +321,12 @@ namespace xivr
                 else if (cfg.data.isEnabled == false && isEnabled == true)
                 {
                     xivr_hooks.Stop();
-                    xivr_hooks.WindowResize(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
-                    PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
+                    if (hasResized == true)
+                    {
+                        xivr_hooks.WindowResize(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
+                        PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
+                        hasResized = false;
+                    }
                     isEnabled = false;
                     counter = 50;
                 }
@@ -349,8 +355,12 @@ namespace xivr
             {
                 xivr_hooks.Stop();
                 xivr_hooks.Dispose();
-                xivr_hooks.WindowResize(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
-                PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
+                if (hasResized == true)
+                {
+                    xivr_hooks.WindowResize(GameWindowHandle, origWindowSize.X, origWindowSize.Y);
+                    PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
+                    hasResized = false;
+                }
             }
             DalamudApi.TitleScreenMenu.RemoveEntry(xivrMenuEntry);
             DalamudApi.Framework.Update -= Update;

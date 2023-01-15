@@ -27,4 +27,5 @@ struct Configuration
     bool autoResize;
     float ipdOffset;
     bool vLog;
+    bool hmdloc;
 };

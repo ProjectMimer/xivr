@@ -85,6 +85,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 void InitInstance(HANDLE hModule)
 {
+	device = nullptr;
+	rtManager = nullptr;
 	outputLog.str("");
 }
 
@@ -202,7 +204,8 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		rtManager = (stRenderTargetManager*)rtm;
 		if (cfg.vLog)
 		{
-			outputLog << std::hex << "Device:" << struct_device << std::endl;
+			outputLog << std::hex << "SetDX Dx:" << struct_device << " RndTrg:" << rtm << std::endl;
+			forceFlush();
 			outputLog << "factory: " << device->IDXGIFactory << std::endl;
 			outputLog << "Dev: " << device->Device << std::endl;
 			outputLog << "DevCon: " << device->DeviceContext << std::endl;
@@ -299,6 +302,8 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		uiRenderTexture[0].Height = uiRenderTarget[0].textureDesc.Height;
 		uiRenderTexture[0].Width1 = uiRenderTarget[0].textureDesc.Width;
 		uiRenderTexture[0].Height1 = uiRenderTarget[0].textureDesc.Height;
+		uiRenderTexture[0].Width2 = uiRenderTarget[0].textureDesc.Width;
+		uiRenderTexture[0].Height2 = uiRenderTarget[0].textureDesc.Height;
 		uiRenderTexture[0].Texture = uiRenderTarget[0].pTexture;
 		uiRenderTexture[0].ShaderResourceView = uiRenderTarget[0].pShaderResource;
 		uiRenderTexture[0].RenderTargetPtr = (unsigned long long)&uiRenderTarget[0].pRenderTarget;
@@ -308,6 +313,8 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		uiRenderTexture[1].Notifier = device->SwapChain->BackBuffer->Notifier;
 		uiRenderTexture[1].Width = uiRenderTarget[1].textureDesc.Width;
 		uiRenderTexture[1].Height = uiRenderTarget[1].textureDesc.Height;
+		uiRenderTexture[1].Width1 = uiRenderTarget[1].textureDesc.Width;
+		uiRenderTexture[1].Height1 = uiRenderTarget[1].textureDesc.Height;
 		uiRenderTexture[1].Width1 = uiRenderTarget[1].textureDesc.Width;
 		uiRenderTexture[1].Height1 = uiRenderTarget[1].textureDesc.Height;
 		uiRenderTexture[1].Texture = uiRenderTarget[1].pTexture;
@@ -334,6 +341,7 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 
 		setActionHandlesGame(&steamInput);
 		enabled = true;
+		
 	}
 	if (cfg.vLog)
 	{
