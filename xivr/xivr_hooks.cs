@@ -21,6 +21,7 @@ using FFXIVClientStructs.FFXIV.Client.System;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using Lumina.Excel.GeneratedSheets;
 
 namespace xivr
 {
@@ -175,7 +176,7 @@ namespace xivr
         private UInt64 RenderTargetManagerAddress = 0;
         private GCHandle getThreadedDataHandle;
         private int[] runCount = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
+        private UInt64 tls_index = 0;
         UpdateControllerInput controllerCallback;
         InternalLogging internalLogging;
 
@@ -200,6 +201,7 @@ namespace xivr
             internal const string CameraManagerInstance = "48 8B 05 ?? ?? ?? ?? 83 78 50 00 75 22";
             internal const string GlobalScale = "F3 0F 10 0D ?? ?? ?? ?? F3 0F 10 40 4C";
             internal const string RenderTargetManager = "48 8B 05 ?? ?? ?? ?? 49 63 C8";
+            internal const string tls_index = "8B 15 ?? ?? ?? ?? 45 33 E4";
 
             internal const string DisableLeftClick = "E8 ?? ?? ?? ?? BA ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 16";
             internal const string DisableRightClick = "E8 ?? ?? ?? ?? 48 8B CE E8 ?? ?? ?? ?? 48 85 C0 74 1B";
@@ -221,6 +223,8 @@ namespace xivr
             internal const string LoadCharacter = "48 89 5C 24 10 48 89 6C 24 18 56 57 41 57 48 83 EC 30 48 8B F9 4D 8B F9 8B CA 49 8B D8 8B EA";
             internal const string GetAnalogueValue = "E8 ?? ?? ?? ?? 66 44 0F 6E C3";
             internal const string ControllerInput = "E8 ?? ?? ?? ?? 41 8B 86 3C 04 00 00";
+
+            internal const string ChangeEquipment = "E8 ?? ?? ?? ?? 41 B5 01 FF C6";
         }
 
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[xivr] {message}");
@@ -294,11 +298,14 @@ namespace xivr
                 PluginLog.Log($"BaseAddress {BaseAddress:X}");
 
                 IntPtr tmpAddress = DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.CameraManagerInstance);
-                PluginLog.Log($"CameraManagerInstance: {*(UInt64*)tmpAddress:X} {(*(UInt64*)tmpAddress - BaseAddress):X}");
                 camInst = (CameraManagerInstance*)(*(UInt64*)tmpAddress);
 
                 globalScaleAddress = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.GlobalScale);
                 RenderTargetManagerAddress = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.RenderTargetManager);
+
+                tls_index = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.tls_index);
+                PluginLog.Log($"tls_index: {tls_index:X}");
+
 
                 GetThreadedDataInit();
                 SetFunctionHandles();
@@ -332,7 +339,10 @@ namespace xivr
                 PluginLog.Log($"Start A {initalized} {hooksSet}");
             if (initalized == true && hooksSet == false && VR_IsHmdPresent())
             {
-                if(!SetDX11((IntPtr)Device.Instance(), *(IntPtr*)RenderTargetManagerAddress))
+                if (xivr.cfg.data.vLog)
+                    PluginLog.Log($"SetDX Dx: {(IntPtr)Device.Instance():X} RndTrg:{*(IntPtr*)RenderTargetManagerAddress:X}");
+
+                if (!SetDX11((IntPtr)Device.Instance(), *(IntPtr*)RenderTargetManagerAddress))
                     return false;
 
                 string filePath = Path.Join(DalamudApi.PluginInterface.AssemblyLocation.DirectoryName, "config", "actions.json");
@@ -385,6 +395,7 @@ namespace xivr
         }
 
         int timer = 100;
+
         public void Update(Dalamud.Game.Framework framework_)
         {
             if (hooksSet)
@@ -507,10 +518,8 @@ namespace xivr
             UInt64 threadedData = GetThreadedDataFn();
             if (threadedData != 0)
             {
-                int offset = (*(int*)(BaseAddress + 0x21B0AF4)); //20DA974
-                threadedData = *(UInt64*)(threadedData + (UInt64)(offset * 8));
+                threadedData = *(UInt64*)(threadedData + (UInt64)((*(int*)tls_index) * 8));
                 threadedData = *(UInt64*)(threadedData + 0x250);
-                *(uint*)(threadedData + 0x8) = *(uint*)(threadedData + 8) & 0xfff80000;
             }
             return threadedData;
         }
@@ -556,10 +565,6 @@ namespace xivr
             Structures.Texture* texture = GetUIRenderTexture(curEye);
             UInt64 threadedOffset = GetThreadedOffset();
             SetRenderTargetFn!(threadedOffset, 1, &texture, 0, 0, 0);
-
-            //UInt64 tAddr = *(UInt64*)(renderTargetManagerAddr + rndrOffset);
-            //Structures.Texture* texture1 = (Structures.Texture*)(tAddr);
-            //SetRenderTargetFn(threadedOffset, 1, &texture1, 0, 0, 0);
 
             AddClearCommand();
 
@@ -685,7 +690,7 @@ namespace xivr
         //----
         // CameraManager Setup??
         //----
-        private delegate void CamManagerSetMatrixDg(UInt64 a);
+        private delegate void CamManagerSetMatrixDg(CameraManagerInstance* camMngrInstance);
         [Signature(Signatures.CamManagerSetMatrix, DetourName = nameof(CamManagerSetMatrixFn))]
         private Hook<CamManagerSetMatrixDg>? CamManagerSetMatrixHook = null;
 
@@ -698,10 +703,10 @@ namespace xivr
                 CamManagerSetMatrixHook?.Disable();
         }
 
-        private void CamManagerSetMatrixFn(UInt64 a)
+        private void CamManagerSetMatrixFn(CameraManagerInstance* camMngrInstance)
         {
             overrideFromParent.Push(true);
-            CamManagerSetMatrixHook!.Original(a);
+            CamManagerSetMatrixHook!.Original(camMngrInstance);
             overrideFromParent.Pop();
         }
 
@@ -761,14 +766,10 @@ namespace xivr
             SetUIProjHook!.Original(a, b);
         }
 
-
-
-
-
         //----
         // Camera CalculateViewMatrix
         //----
-        private delegate void CalculateViewMatrixDg(UInt64 a);
+        private delegate void CalculateViewMatrixDg(RawGameCamera* a);
         [Signature(Signatures.CalculateViewMatrix, DetourName = nameof(CalculateViewMatrixFn))]
         private Hook<CalculateViewMatrixDg>? CalculateViewMatrixHook = null;
 
@@ -785,40 +786,40 @@ namespace xivr
         // This function is also called for ui character stuff so only
         // act on it the first time its run per frame
         //----
-        private void CalculateViewMatrixFn(UInt64 a)
+        private void CalculateViewMatrixFn(RawGameCamera* rawGameCamera)
         {
-            IntPtr gameViewMatrixAddr = (IntPtr)(a + 0xA0);
-            SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, Matrix4x4.Identity);
-            CalculateViewMatrixHook!.Original(a);
+            rawGameCamera->ViewMatrix = Matrix4x4.Identity;
+            CalculateViewMatrixHook!.Original(rawGameCamera);
 
             if (frfCalculateViewMatrix == false)
             {
                 frfCalculateViewMatrix = true;
-                //if (curEye == 0 || (xivr.cfg.data.swapEyes && swapEyes[curEye] == 0))
-                //    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out curViewMatrix);
-
                 if (enableVR && enableFloatingHUD && forceFloatingScreen == false)
                 {
                     Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
-                    if (camInst != null && xivr.cfg.data.horizonLock)
-                    {
-                        GameCamera* gameCamera = (GameCamera*)(camInst->CameraOffset + (camInst->CameraIndex * 8));
-                        if (gameCamera != null)
-                            horizonLockMatrix = Matrix4x4.CreateFromAxisAngle(new Vector3(1, 0, 0), gameCamera->CurrentVRotation);
-
-                        //PluginLog.Log($"gameCamera {gameCamera->X} {gameCamera->Y} {gameCamera->Z}");
-                    }
+                    if (xivr.cfg.data.horizonLock || gameMode == 0)
+                        horizonLockMatrix = Matrix4x4.CreateFromAxisAngle(new Vector3(1, 0, 0), rawGameCamera->CurrentVRotation);
                     horizonLockMatrix.M41 = (-xivr.cfg.data.offsetAmountX / 100);
                     horizonLockMatrix.M42 = (xivr.cfg.data.offsetAmountY / 100);
 
                     Matrix4x4 invGameViewMatrixAddr;
-                    Vector3 angles = GetAngles(lhcMatrix);
+                    Vector3 angles = new Vector3();
+                    if (xivr.cfg.data.conloc)
+                    {
+                        angles = GetAngles(lhcMatrix);
+                    }
+                    else if (xivr.cfg.data.hmdloc)
+                    {
+                        angles = GetAngles(hmdMatrix);
+                        angles.Y *= -1;
+                    }
+
                     Matrix4x4 revOnward = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), -angles.Y);
                     Matrix4x4 zoom = Matrix4x4.CreateTranslation(0, 0, -cameraZoom);
                     //revOnward = revOnward * zoom;
                     //Matrix4x4.Invert(revOnward, out revOnward);
 
-                    if (xivr.cfg.data.conloc == false || gameMode == 1)
+                    if ((xivr.cfg.data.conloc == false && xivr.cfg.data.hmdloc == false) || gameMode == 1)
                         revOnward = Matrix4x4.Identity;
 
                     if (xivr.cfg.data.swapEyes)
@@ -826,9 +827,7 @@ namespace xivr
                     else
                         hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
 
-                    SafeMemory.Read<Matrix4x4>(gameViewMatrixAddr, out curViewMatrix);
-                    Matrix4x4 gameViewMatrix = curViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
-                    SafeMemory.Write<Matrix4x4>(gameViewMatrixAddr, gameViewMatrix);
+                    rawGameCamera->ViewMatrix = rawGameCamera->ViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
                 }
             }
         }
@@ -839,7 +838,7 @@ namespace xivr
         //----
         // Camera UpdateRotation
         //----
-        private delegate void UpdateRotationDg(UInt64 a);
+        private delegate void UpdateRotationDg(GameCamera* gameCamera);
         [Signature(Signatures.UpdateRotation, DetourName = nameof(UpdateRotationFn))]
         private Hook<UpdateRotationDg>? UpdateRotationHook = null;
 
@@ -852,41 +851,59 @@ namespace xivr
                 UpdateRotationHook?.Disable();
         }
 
-        private void UpdateRotationFn(UInt64 a)
+        private void UpdateRotationFn(GameCamera* gameCamera)
         {
-            GameCamera* gameCamera = (GameCamera*)(a + 0x10);
-            if (gameCamera != null && forceFloatingScreen == false)
+            if (forceFloatingScreen == false)
             {
-                gameMode = gameCamera->Mode;
-                Vector3 angles = GetAngles(lhcMatrix);
-                angles.Y *= -1;
+                gameMode = gameCamera->Camera.Mode;
+                Vector3 angles = new Vector3();
+
+                if (xivr.cfg.data.conloc)
+                {
+                    angles = GetAngles(lhcMatrix);
+                    angles.Y *= -1;
+                }
+                else if (xivr.cfg.data.hmdloc)
+                {
+                    angles = GetAngles(hmdMatrix);
+                    angles.X *= -1;
+                }
 
                 onwardDiff = angles - onwardAngle;
                 onwardAngle = angles;
 
                 if (xivr.cfg.data.horizontalLock)
-                    gameCamera->HRotationThisFrame2 = 0;
+                    gameCamera->Camera.HRotationThisFrame2 = 0;
                 if (xivr.cfg.data.verticalLock)
-                    gameCamera->VRotationThisFrame2 = 0;
-                if (xivr.cfg.data.conloc == false || gameMode == 1)
+                    gameCamera->Camera.VRotationThisFrame2 = 0;
+                if ((xivr.cfg.data.conloc == false && xivr.cfg.data.hmdloc == false) || gameMode == 1)
+                {
                     onwardDiff.Y = 0;
+                    onwardDiff.X = 0;
+                    onwardDiff.Z = 0;
+                }
 
-                float curH = gameCamera->CurrentHRotation;
-                float curV = gameCamera->CurrentVRotation;
-                //gameCamera->HRotationThisFrame1 += onwardDiff.Y + rotateAmount.X;
-                gameCamera->HRotationThisFrame2 += onwardDiff.Y + rotateAmount.X;
-                //gameCamera->VRotationThisFrame1 += onwardDiff.X + rotateAmount.Y;
-                //gameCamera->VRotationThisFrame2 += onwardDiff.X + rotateAmount.Y;
-                gameCamera->VRotationThisFrame2 += rotateAmount.Y;
+                float curH = gameCamera->Camera.CurrentHRotation;
+                float curV = gameCamera->Camera.CurrentVRotation;
+                //gameCamera->Camera.HRotationThisFrame1 += onwardDiff.Y + rotateAmount.X;
+                gameCamera->Camera.HRotationThisFrame2 += onwardDiff.Y + rotateAmount.X;
+                //gameCamera->Camera.VRotationThisFrame1 += onwardDiff.X + rotateAmount.Y;
+                //gameCamera->Camera.VRotationThisFrame2 += onwardDiff.X + rotateAmount.Y;
+
+                if(xivr.cfg.data.vertloc)
+                    gameCamera->Camera.VRotationThisFrame2 += onwardDiff.X + rotateAmount.Y;
+                else
+                    gameCamera->Camera.VRotationThisFrame2 += rotateAmount.Y;
+
                 rotateAmount.X = 0;
                 rotateAmount.Y = 0;
 
-                cameraZoom = gameCamera->CurrentZoom;
-                UpdateRotationHook!.Original(a);
+                cameraZoom = gameCamera->Camera.CurrentZoom;
+                UpdateRotationHook!.Original(gameCamera);
             }
             else
             {
-                UpdateRotationHook!.Original(a);
+                UpdateRotationHook!.Original(gameCamera);
             }
         }
 
@@ -896,7 +913,7 @@ namespace xivr
         //----
         // MakeProjectionMatrix2
         //----
-        private delegate float* MakeProjectionMatrix2Dg(UInt64 a, float b, float c, float d, float e);
+        private delegate Matrix4x4 MakeProjectionMatrix2Dg(Matrix4x4 projMatrix, float b, float c, float d, float e);
         [Signature(Signatures.MakeProjectionMatrix2, DetourName = nameof(MakeProjectionMatrix2Fn))]
         private Hook<MakeProjectionMatrix2Dg>? MakeProjectionMatrix2Hook = null;
 
@@ -909,21 +926,21 @@ namespace xivr
                 MakeProjectionMatrix2Hook?.Disable();
         }
 
-        private float* MakeProjectionMatrix2Fn(UInt64 a, float b, float c, float d, float e)
+        private Matrix4x4 MakeProjectionMatrix2Fn(Matrix4x4 projMatrix, float b, float c, float d, float e)
         {
             bool overrideMatrix = (overrideFromParent.Count == 0) ? false : overrideFromParent.Peek();
-            float* retVal = MakeProjectionMatrix2Hook!.Original(a, b, c, d, e);
+            Matrix4x4 retVal = MakeProjectionMatrix2Hook!.Original(projMatrix, b, c, d, e);
             if (enableVR && enableFloatingHUD && overrideMatrix && forceFloatingScreen == false)
             {
                 if (xivr.cfg.data.swapEyes)
                 {
-                    SafeMemory.Read<float>((IntPtr)(a + 0x38), out gameProjectionMatrix[swapEyes[curEye]].M43);
-                    SafeMemory.Write<Matrix4x4>((IntPtr)retVal, gameProjectionMatrix[swapEyes[curEye]]);
+                    gameProjectionMatrix[swapEyes[curEye]].M43 = retVal.M43;
+                    retVal = gameProjectionMatrix[swapEyes[curEye]];
                 }
                 else
                 {
-                    SafeMemory.Read<float>((IntPtr)(a + 0x38), out gameProjectionMatrix[curEye].M43);
-                    SafeMemory.Write<Matrix4x4>((IntPtr)retVal, gameProjectionMatrix[curEye]);
+                    gameProjectionMatrix[curEye].M43 = retVal.M43;
+                    retVal = gameProjectionMatrix[curEye];
                 }
             }
             return retVal;
@@ -934,7 +951,7 @@ namespace xivr
         //----
         // CascadeShadow MakeProjectionMatrix
         //----
-        private delegate float* CSMakeProjectionMatrixDg(UInt64 a, float b, float c, float d, float e);
+        private delegate Matrix4x4 CSMakeProjectionMatrixDg(Matrix4x4 projMatrix, float b, float c, float d, float e);
         [Signature(Signatures.CSMakeProjectionMatrix, DetourName = nameof(CSMakeProjectionMatrixFn))]
         private Hook<CSMakeProjectionMatrixDg>? CSMakeProjectionMatrixHook = null;
 
@@ -947,14 +964,14 @@ namespace xivr
                 CSMakeProjectionMatrixHook?.Disable();
         }
 
-        private float* CSMakeProjectionMatrixFn(UInt64 a, float b, float c, float d, float e)
+        private Matrix4x4 CSMakeProjectionMatrixFn(Matrix4x4 projMatrix, float b, float c, float d, float e)
         {
             bool overrideMatrix = (overrideFromParent.Count == 0) ? false : overrideFromParent.Peek();
             if (enableVR && enableFloatingHUD && overrideMatrix && forceFloatingScreen == false)
             {
                 b = 2.0f;
             }
-            float* retVal = CSMakeProjectionMatrixHook!.Original(a, b, c, d, e);
+            Matrix4x4 retVal = CSMakeProjectionMatrixHook!.Original(projMatrix, b, c, d, e);
             return retVal;
         }
 
@@ -1042,7 +1059,7 @@ namespace xivr
 
 
 
-
+        /*
         //----
         // LoadCharacter
         //----
@@ -1069,7 +1086,7 @@ namespace xivr
             }
             return LoadCharacterHook!.Original(a, b, c, d, e, f);
         }
-
+        */
 
 
 
