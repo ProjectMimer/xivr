@@ -198,7 +198,7 @@ namespace xivr
                 };
 
         CameraManagerInstance* camInst = null;
-        AtkImageNode* vrTargetCursor = null;
+        AtkTextNode* vrTargetCursor = null;
         NamePlateObject* currentNPTarget = null;
 
         private static class Signatures
@@ -290,81 +290,54 @@ namespace xivr
             }
         }
 
-        public bool SetupVRTargetCursor(AddonNamePlate* addonNamePlate)
+        public bool SetupVRTargetCursor()
         {
             if(vrTargetCursor != null)
             {
                 return true;
             }
 
-            vrTargetCursor = (AtkImageNode*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkImageNode), 8);
+            vrTargetCursor = (AtkTextNode*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkTextNode), 8);
             if (vrTargetCursor == null)
             {
-                PluginLog.Debug("Failed to allocate memory for image node");
+                PluginLog.Debug("Failed to allocate memory for text node");
                 return false;
             }
-            IMemorySpace.Memset(vrTargetCursor, 0, (ulong)sizeof(AtkImageNode));
+            IMemorySpace.Memset(vrTargetCursor, 0, (ulong)sizeof(AtkTextNode));
             vrTargetCursor->Ctor();
 
-            vrTargetCursor->AtkResNode.Type = NodeType.Image;
-            vrTargetCursor->AtkResNode.Flags = (short)NodeFlags.UseDepthBasedPriority;
-            vrTargetCursor->AtkResNode.DrawFlags = 0;
+            vrTargetCursor->AtkResNode.Type = NodeType.Text;
+            vrTargetCursor->AtkResNode.Flags = (short)(NodeFlags.UseDepthBasedPriority);
+            vrTargetCursor->AtkResNode.DrawFlags = 12;
 
-            vrTargetCursor->WrapMode = 1;
-            vrTargetCursor->Flags |= (byte)ImageNodeFlags.AutoFit;
+            vrTargetCursor->LineSpacing = 12;
+            vrTargetCursor->AlignmentFontType = 4;
+            vrTargetCursor->FontSize = 100;
+            vrTargetCursor->TextFlags = (byte)(TextFlags.AutoAdjustNodeSize | TextFlags.Edge);
+            vrTargetCursor->TextFlags2 = 0;
 
-            var partsList = (AtkUldPartsList*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkUldPartsList), 8);
-            if (partsList == null)
-            {
-                PluginLog.Debug("Failed to allocate memory for parts list");
-                vrTargetCursor->AtkResNode.Destroy(true);
-                return false;
-            }
-
-            partsList->Id = 0;
-            partsList->PartCount = 1;
-
-            var part = (AtkUldPart*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkUldPart), 8);
-            if (part == null)
-            {
-                PluginLog.Debug("Failed to allocate memory for part");
-                IMemorySpace.Free(partsList, (ulong)sizeof(AtkUldPartsList));
-                vrTargetCursor->AtkResNode.Destroy(true);
-            }
-
-            part->U = 0;
-            part->V = 0;
-            part->Width = 0;
-            part->Height = 0;
-
-            partsList->Parts = part;
-
-            var asset = (AtkUldAsset*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkUldAsset), 8);
-            if (asset == null)
-            {
-                PluginLog.Log("Failed to allocate memory for asset");
-                IMemorySpace.Free(part, (ulong)sizeof(AtkUldPart));
-                IMemorySpace.Free(partsList, (ulong)sizeof(AtkUldPartsList));
-                vrTargetCursor->AtkResNode.Destroy(true);
-            }
-
-            asset->Id = 0;
-            asset->AtkTexture.Ctor();
-
-            part->UldAsset = asset;
-
-            vrTargetCursor->PartsList = partsList;
-
-            // glowing drg job icon
-            vrTargetCursor->LoadIconTexture(62404, 0);
-
-            vrTargetCursor->AtkResNode.SetPositionShort(45, 20);
-            vrTargetCursor->AtkResNode.SetScale(2, 2);
-
-            vrTargetCursor->AtkResNode.SetWidth(100);
-            vrTargetCursor->AtkResNode.SetHeight(40);
+            vrTargetCursor->SetText("↓");
 
             vrTargetCursor->AtkResNode.ToggleVisibility(true);
+
+            vrTargetCursor->AtkResNode.SetPositionShort(90, -23);
+            ushort outWidth = 0;
+            ushort outHeight = 0;
+            vrTargetCursor->GetTextDrawSize(&outWidth, &outHeight);
+            vrTargetCursor->AtkResNode.SetWidth((ushort)(outWidth));
+            vrTargetCursor->AtkResNode.SetHeight((ushort)(outHeight));
+
+            // white fill
+            vrTargetCursor->TextColor.R = 255;
+            vrTargetCursor->TextColor.G = 255;
+            vrTargetCursor->TextColor.B = 255;
+            vrTargetCursor->TextColor.A = 255;
+
+            // yellow/golden glow
+            vrTargetCursor->EdgeColor.R = 235;
+            vrTargetCursor->EdgeColor.G = 185;
+            vrTargetCursor->EdgeColor.B = 7;
+            vrTargetCursor->EdgeColor.A = 255;
 
             return true;
         }
@@ -378,8 +351,6 @@ namespace xivr
 
                 currentNPTarget = null;
 
-                IMemorySpace.Free(vrTargetCursor->PartsList->Parts, (ulong)sizeof(AtkUldPart));
-                IMemorySpace.Free(vrTargetCursor->PartsList, (ulong)sizeof(AtkUldPartsList));
                 vrTargetCursor->AtkResNode.Destroy(true);
                 vrTargetCursor = null;
             }
@@ -1205,7 +1176,7 @@ namespace xivr
                     //targetAddon->RootNode->SetUseDepthBasedPriority(true);
                 }
 
-                SetupVRTargetCursor(a);
+                SetupVRTargetCursor();
 
                 for (byte i = 0; i < NamePlateCount; i++)
                 {
