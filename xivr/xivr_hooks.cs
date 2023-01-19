@@ -18,10 +18,13 @@ using xivr.Structures;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.System;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using Lumina.Excel.GeneratedSheets;
+using static FFXIVClientStructs.FFXIV.Client.UI.AddonNamePlate;
 
 namespace xivr
 {
@@ -195,6 +198,8 @@ namespace xivr
                 };
 
         CameraManagerInstance* camInst = null;
+        AtkTextNode* vrTargetCursor = null;
+        NamePlateObject* currentNPTarget = null;
 
         private static class Signatures
         {
@@ -281,6 +286,136 @@ namespace xivr
                         inputList.Add(key, handle);
                         inputState.Add(key, false);
                     }
+                }
+            }
+        }
+
+        public bool SetupVRTargetCursor()
+        {
+            if(vrTargetCursor != null)
+            {
+                return true;
+            }
+
+            vrTargetCursor = (AtkTextNode*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkTextNode), 8);
+            if (vrTargetCursor == null)
+            {
+                PluginLog.Debug("Failed to allocate memory for text node");
+                return false;
+            }
+            IMemorySpace.Memset(vrTargetCursor, 0, (ulong)sizeof(AtkTextNode));
+            vrTargetCursor->Ctor();
+
+            vrTargetCursor->AtkResNode.Type = NodeType.Text;
+            vrTargetCursor->AtkResNode.Flags = (short)(NodeFlags.UseDepthBasedPriority);
+            vrTargetCursor->AtkResNode.DrawFlags = 12;
+
+            vrTargetCursor->LineSpacing = 12;
+            vrTargetCursor->AlignmentFontType = 4;
+            vrTargetCursor->FontSize = 100;
+            vrTargetCursor->TextFlags = (byte)(TextFlags.AutoAdjustNodeSize | TextFlags.Edge);
+            vrTargetCursor->TextFlags2 = 0;
+
+            vrTargetCursor->SetText("↓");
+
+            vrTargetCursor->AtkResNode.ToggleVisibility(true);
+
+            vrTargetCursor->AtkResNode.SetPositionShort(90, -23);
+            ushort outWidth = 0;
+            ushort outHeight = 0;
+            vrTargetCursor->GetTextDrawSize(&outWidth, &outHeight);
+            vrTargetCursor->AtkResNode.SetWidth((ushort)(outWidth));
+            vrTargetCursor->AtkResNode.SetHeight((ushort)(outHeight));
+
+            // white fill
+            vrTargetCursor->TextColor.R = 255;
+            vrTargetCursor->TextColor.G = 255;
+            vrTargetCursor->TextColor.B = 255;
+            vrTargetCursor->TextColor.A = 255;
+
+            // yellow/golden glow
+            vrTargetCursor->EdgeColor.R = 235;
+            vrTargetCursor->EdgeColor.G = 185;
+            vrTargetCursor->EdgeColor.B = 7;
+            vrTargetCursor->EdgeColor.A = 255;
+
+            return true;
+        }
+
+        public void FreeVRTargetCursor()
+        {
+            if(vrTargetCursor != null)
+            {
+                if (currentNPTarget != null)
+                    RemoveVRCursor(currentNPTarget);
+
+                currentNPTarget = null;
+
+                vrTargetCursor->AtkResNode.Destroy(true);
+                vrTargetCursor = null;
+            }
+        }
+
+        public void AddVRCursor(NamePlateObject* nameplate)
+        {
+            if(nameplate != null && vrTargetCursor != null)
+            {
+                var npComponent = nameplate->RootNode->Component;
+
+                var lastChild = npComponent->UldManager.RootNode;
+                while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;
+
+                lastChild->PrevSiblingNode = (AtkResNode*)vrTargetCursor;
+                vrTargetCursor->AtkResNode.NextSiblingNode = lastChild;
+                vrTargetCursor->AtkResNode.ParentNode = (AtkResNode*)nameplate->RootNode;
+
+                npComponent->UldManager.UpdateDrawNodeList();
+            }
+        }
+
+        public void RemoveVRCursor(NamePlateObject* nameplate)
+        {
+            if (nameplate != null && vrTargetCursor != null)
+            {
+                var npComponent = nameplate->RootNode->Component;
+
+                var lastChild = npComponent->UldManager.RootNode;
+                while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;
+
+                if(lastChild == vrTargetCursor)
+                {
+                    lastChild->NextSiblingNode->PrevSiblingNode = null;
+                   
+                    vrTargetCursor->AtkResNode.NextSiblingNode = null;
+                    vrTargetCursor->AtkResNode.ParentNode = null;
+
+                    npComponent->UldManager.UpdateDrawNodeList();
+                }
+                else
+                {
+                    PluginLog.Error("RemoveVRCursor: lastChild != vrTargetCursor");
+                }
+            }
+        }
+
+        public void SetVRCursor(NamePlateObject* nameplate)
+        {
+            // nothing to do!
+            if (currentNPTarget == nameplate)
+                return;
+
+            if(vrTargetCursor != null)
+            {
+                if(currentNPTarget != null)
+                {
+                    RemoveVRCursor(currentNPTarget);
+                    currentNPTarget = null;
+                }
+
+                if(nameplate != null)
+                {
+                    AddVRCursor(nameplate);
+                    currentNPTarget = nameplate;
                 }
             }
         }
@@ -384,6 +519,8 @@ namespace xivr
                 gameProjectionMatrix[1] = Matrix4x4.Identity;
                 eyeOffsetMatrix[0] = Matrix4x4.Identity;
                 eyeOffsetMatrix[1] = Matrix4x4.Identity;
+
+                FreeVRTargetCursor();
 
                 UnsetDX11();
 
@@ -1039,9 +1176,11 @@ namespace xivr
                     //targetAddon->RootNode->SetUseDepthBasedPriority(true);
                 }
 
+                SetupVRTargetCursor();
+
                 for (byte i = 0; i < NamePlateCount; i++)
                 {
-                    AddonNamePlate.NamePlateObject* npObj = &a->NamePlateObjectArray[i];
+                    NamePlateObject* npObj = &a->NamePlateObjectArray[i];
                     AtkComponentBase* npComponent = npObj->RootNode->Component;
 
                     for (int j = 0; j < npComponent->UldManager.NodeListCount; j++)
@@ -1052,6 +1191,25 @@ namespace xivr
 
                     npObj->RootNode->Component->UldManager.UpdateDrawNodeList();
                 }
+
+                NamePlateObject* selectedNamePlate = null;
+                var framework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
+                var ui3DModule = framework->GetUiModule()->GetUI3DModule();
+
+                for (int i = 0; i < ui3DModule->NamePlateObjectInfoCount; i++)
+                {
+                    var objectInfo = ((UI3DModule.ObjectInfo**)ui3DModule->NamePlateObjectInfoPointerArray)[i];
+
+                    TargetSystem* targSys = (TargetSystem*)DalamudApi.TargetManager.Address;
+                    if (objectInfo->GameObject == targSys->Target)
+                    {                        
+                        selectedNamePlate = &a->NamePlateObjectArray[objectInfo->NamePlateIndex];
+                        break;
+                    }
+                }
+
+                SetVRCursor(selectedNamePlate);
+                
             }
 
             NamePlateDrawHook!.Original(a);
