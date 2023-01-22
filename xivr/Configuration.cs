@@ -39,6 +39,7 @@ namespace xivr
             [MarshalAs(UnmanagedType.U1)] public bool vLog;
             [MarshalAs(UnmanagedType.U1)] public bool hmdloc;
             [MarshalAs(UnmanagedType.U1)] public bool vertloc;
+            [MarshalAs(UnmanagedType.I4)] public int targetCursorSize;
 
             public cfgData()
             {
@@ -67,6 +68,7 @@ namespace xivr
                 vLog = false;
                 hmdloc = false;
                 vertloc = false;
+                targetCursorSize = 100;
             }
         }
 

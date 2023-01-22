@@ -139,6 +139,7 @@ namespace xivr
             bool swapEyesUI = xivr.cfg.data.swapEyesUI;
             float offsetAmountX = xivr.cfg.data.offsetAmountX;
             float offsetAmountY = xivr.cfg.data.offsetAmountY;
+            int targetCursorSize = xivr.cfg.data.targetCursorSize;
 
 
             ImGui.BeginChild("UI", new Vector2(300, 250) * ImGuiHelpers.GlobalScale, true);
@@ -152,6 +153,8 @@ namespace xivr
 
             ImGui.Text("X Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:xoff", ref offsetAmountX, -150, 150, "%.0f");
             ImGui.Text("Y Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:yoff", ref offsetAmountY, -150, 150, "%.0f");
+
+            ImGui.Text("Target Cursor Size"); ImGui.SameLine(); ImGui.SliderInt("##DrawUISetings:targetcur", ref targetCursorSize, 50, 255);
 
             if (xivr.cfg.data.uiOffsetZ != uiOffsetZ)
                 xivr.Plugin.doUpdate = true; xivr.cfg.data.uiOffsetZ = uiOffsetZ;
@@ -173,6 +176,9 @@ namespace xivr
 
             if (xivr.cfg.data.offsetAmountY != offsetAmountY)
                 xivr.Plugin.doUpdate = true; xivr.cfg.data.offsetAmountY = offsetAmountY;
+
+            if (xivr.cfg.data.targetCursorSize != targetCursorSize)
+                xivr.Plugin.doUpdate = true; xivr.cfg.data.targetCursorSize = targetCursorSize;
 
             ImGui.EndChild();
 
