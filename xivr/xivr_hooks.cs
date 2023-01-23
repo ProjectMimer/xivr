@@ -312,7 +312,7 @@ namespace xivr
 
             vrTargetCursor->LineSpacing = 12;
             vrTargetCursor->AlignmentFontType = 4;
-            vrTargetCursor->FontSize = 100;
+            vrTargetCursor->FontSize = (byte)xivr.cfg.data.targetCursorSize;
             vrTargetCursor->TextFlags = (byte)(TextFlags.AutoAdjustNodeSize | TextFlags.Edge);
             vrTargetCursor->TextFlags2 = 0;
 
@@ -396,6 +396,38 @@ namespace xivr
                     PluginLog.Error("RemoveVRCursor: lastChild != vrTargetCursor");
                 }
             }
+        }
+
+        public void UpdateVRCursorSize()
+        {
+            if (vrTargetCursor == null) return;
+
+            vrTargetCursor->FontSize = (byte)xivr.cfg.data.targetCursorSize;
+            ushort outWidth = 0;
+            ushort outHeight = 0;
+            vrTargetCursor->GetTextDrawSize(&outWidth, &outHeight);
+            vrTargetCursor->AtkResNode.SetWidth(outWidth);
+            vrTargetCursor->AtkResNode.SetHeight(outHeight);
+
+            // explanation of these numbers
+            // Some setup info:
+            // 1. The ↓ character output from GetTextDrawSize is always 1:1 with the
+            //    requested font. Font size 100 results in outWidth 100 and outHeight 100.
+            // 2. The anchor point for text fields are the upper left corner of the frame.
+            // 3. The hand-tuned position of the default font size 100 is x 90, y -23.
+            // 
+            // Adding the inverted delta offset (and div by 2 for x) correctly moves the ancor
+            // from upper left to bottom center. However I noticed that as the font scales
+            // up and down, the point of the arrow drifts slightly along the x and y. This
+            // is the reason for the * 1.10 and * 1.15. This corrects for the drift and keeps
+            // the point of the arrow exactly where it should be.
+
+            const float DriftOffset_X = 1.10f;
+            const float DriftOffset_Y = 1.15f;
+
+            short xpos = (short)(90 + ((100 - outWidth) / 2 * DriftOffset_X));
+            short ypos = (short)(-23 + (100 - outWidth) * DriftOffset_Y);
+            vrTargetCursor->AtkResNode.SetPositionShort(xpos, ypos);
         }
 
         public void SetVRCursor(NamePlateObject* nameplate)
@@ -1208,6 +1240,7 @@ namespace xivr
                     }
                 }
 
+                UpdateVRCursorSize();
                 SetVRCursor(selectedNamePlate);
                 
             }
