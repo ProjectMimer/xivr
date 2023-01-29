@@ -1,93 +1,103 @@
 ﻿using System;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
-using Dalamud.Game.ClientState.Objects.Enums;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace xivr.Structures
 {
-    [StructLayout(LayoutKind.Sequential, Size = 40)]
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
     public unsafe struct CharEquipData
     {
-        public ushort Head;
-        public byte HeadVariant;
-        public byte HeadDye;
+        [FieldOffset(0x00)] public fixed uint Data[10];
+        [FieldOffset(0x00)] public CharEquipSlotData Head;
+        [FieldOffset(0x04)] public CharEquipSlotData Body;
+        [FieldOffset(0x08)] public CharEquipSlotData Hands;
+        [FieldOffset(0x0C)] public CharEquipSlotData Legs;
+        [FieldOffset(0x10)] public CharEquipSlotData Feet;
+        [FieldOffset(0x14)] public CharEquipSlotData Ears;
+        [FieldOffset(0x18)] public CharEquipSlotData Neck;
+        [FieldOffset(0x1C)] public CharEquipSlotData Wrist;
+        [FieldOffset(0x20)] public CharEquipSlotData RRing;
+        [FieldOffset(0x24)] public CharEquipSlotData LRing;
 
-        public ushort Body;
-        public byte BodyVariant;
-        public byte BodyDye;
-
-        public ushort Hands;
-        public byte HandsVariant;
-        public byte HandsDye;
-
-        public ushort Legs;
-        public byte LegsVariant;
-        public byte LegsDye;
-
-        public ushort Feet;
-        public byte FeetVariant;
-        public byte FeetDye;
-
-        public ushort Ears;
-        public byte EarsVariant;
-        public byte EarsDye;
-
-        public ushort Neck;
-        public byte NeckVariant;
-        public byte NeckDye;
-
-        public ushort Wrist;
-        public byte WristVariant;
-        public byte WristDye;
-
-        public ushort RRing;
-        public byte RRingVariant;
-        public byte RRingDye;
-
-        public ushort LRing;
-        public byte LRingVariant;
-        public byte LRingDye;
-
-        public CharEquipData(UInt64 offset)
+        public void Save(Character* character)
         {
-            Head = *(ushort*)(offset + 0);
-            HeadVariant = *(byte*)(offset + 0 + 2);
-            HeadDye = *(byte*)(offset + 0 + 3);
+            Head.Save(character->DrawData.Head);
+            Body.Save(character->DrawData.Top);
+            Hands.Save(character->DrawData.Arms);
+            Legs.Save(character->DrawData.Legs);
+            Feet.Save(character->DrawData.Feet);
+            Ears.Save(character->DrawData.Ear);
+            Neck.Save(character->DrawData.Neck);
+            Wrist.Save(character->DrawData.Wrist);
+            RRing.Save(character->DrawData.RFinger);
+            LRing.Save(character->DrawData.LFinger);
+        }
+    }
 
-            Body = *(ushort*)(offset + 4);
-            BodyVariant = *(byte*)(offset + 4 + 2);
-            BodyDye = *(byte*)(offset + 4 + 3);
+    [StructLayout(LayoutKind.Explicit, Size = 0x4)]
+    public unsafe struct CharEquipSlotData
+    {
+        [FieldOffset(0)] public uint Data;
+        [FieldOffset(0)] public ushort Id;
+        [FieldOffset(2)] public byte Variant;
+        [FieldOffset(3)] public byte Dye;
+        public CharEquipSlotData(ushort id, byte variant, byte dye)
+        {
+            Id = id;
+            Variant = variant;
+            Dye = dye;
+        }
+        public void Save(EquipmentModelId data)
+        {
+            Id = data.Id;
+            Variant = data.Variant;
+            Dye = data.Stain;
+        }
+    }
 
-            Hands = *(ushort*)(offset + 8);
-            HandsVariant = *(byte*)(offset + 8 + 2);
-            HandsDye = *(byte*)(offset + 8 + 3);
+    [StructLayout(LayoutKind.Explicit)]
+    public unsafe struct CharWeaponData
+    {
+        [FieldOffset(0x00)] public fixed UInt64 Data[3];
+        [FieldOffset(0x00)] public CharWeaponSlotData MainHand;
+        [FieldOffset(0x08)] public CharWeaponSlotData OffHand;
+        [FieldOffset(0x0C)] public CharWeaponSlotData Uk3;
 
-            Legs = *(ushort*)(offset + 12);
-            LegsVariant = *(byte*)(offset + 12 + 2);
-            LegsDye = *(byte*)(offset + 12 + 3);
+        public void Save(Character* character)
+        {
+            MainHand.Save(character->DrawData.MainHandModel);
+            OffHand.Save(character->DrawData.OffHandModel);
+            Uk3.Save(character->DrawData.UnkE0Model);
+        }
 
-            Feet = *(ushort*)(offset + 16);
-            FeetVariant = *(byte*)(offset + 16 + 2);
-            FeetDye = *(byte*)(offset + 16 + 3);
+    }
 
-            Ears = *(ushort*)(offset + 20);
-            EarsVariant = *(byte*)(offset + 20 + 2);
-            EarsDye = *(byte*)(offset + 20 + 3);
+    [StructLayout(LayoutKind.Explicit, Size = 0x8)]
+    public unsafe struct CharWeaponSlotData
+    {
+        [FieldOffset(0)] public UInt64 Data;
+        [FieldOffset(0)] public ushort Type;
+        [FieldOffset(2)] public ushort Id;
+        [FieldOffset(4)] public ushort Variant;
+        [FieldOffset(6)] public byte Dye;
+        [FieldOffset(7)] public byte uk1;
 
-            Neck = *(ushort*)(offset + 24);
-            NeckVariant = *(byte*)(offset + 24 + 2);
-            NeckDye = *(byte*)(offset + 24 + 3);
+        public CharWeaponSlotData(ushort type, ushort id, byte variant, byte dye)
+        {
+            Type = type;
+            Id = id;
+            Variant = variant;
+            Dye = dye;
+        }
 
-            Wrist = *(ushort*)(offset + 28);
-            WristVariant = *(byte*)(offset + 28 + 2);
-            WristDye = *(byte*)(offset + 28 + 3);
-
-            RRing = *(ushort*)(offset + 32);
-            RRingVariant = *(byte*)(offset + 32 + 2);
-            RRingDye = *(byte*)(offset + 32 + 3);
-
-            LRing = *(ushort*)(offset + 36);
-            LRingVariant = *(byte*)(offset + 36 + 2);
-            LRingDye = *(byte*)(offset + 36 + 3);
+        public void Save(WeaponModelId data)
+        {
+            Type = data.Type;
+            Id = data.Id;
+            Variant = data.Variant;
+            Dye = data.Stain;
         }
     }
 }

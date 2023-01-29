@@ -40,6 +40,8 @@ namespace xivr
             [MarshalAs(UnmanagedType.U1)] public bool hmdloc;
             [MarshalAs(UnmanagedType.U1)] public bool vertloc;
             [MarshalAs(UnmanagedType.I4)] public int targetCursorSize;
+            [MarshalAs(UnmanagedType.U1)] public bool fpmShowBody;
+            [MarshalAs(UnmanagedType.R4)] public float offsetAmountZ;
 
             public cfgData()
             {
@@ -53,6 +55,7 @@ namespace xivr
                 runRecenter = false;
                 offsetAmountX = 0.0f;
                 offsetAmountY = 0.0f;
+                offsetAmountZ = 0.0f;
                 snapRotateAmountX = 45.0f;
                 snapRotateAmountY = 15.0f;
                 uiOffsetZ = 0.0f;
@@ -69,6 +72,7 @@ namespace xivr
                 hmdloc = false;
                 vertloc = false;
                 targetCursorSize = 100;
+                fpmShowBody = true;
             }
         }
 

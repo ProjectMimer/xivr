@@ -28,7 +28,7 @@ bool logging = false;
 int swapEyes[] = { 1, 0 };
 
 Configuration cfg = Configuration();
-simpleVR svr = simpleVR(&cfg);
+simpleVR* svr = new simpleVR(&cfg);
 BasicRenderer* rend = new BasicRenderer(&cfg);
 
 void InitInstance(HANDLE);
@@ -243,9 +243,10 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 
 		if (cfg.vLog)
 			outputLog << "Starting VR ..";
-		if (!svr.StartVR())
+		if (!svr->StartVR())
 		{
 			outputLog << ".. Error starting VR";
+			outputLog << svr->GetErrors();
 			forceFlush();
 			return false;
 		}
@@ -379,7 +380,7 @@ __declspec(dllexport) void UnsetDX11()
 
 	if (cfg.vLog)
 		outputLog << "Stopping VR ..";
-	svr.StopVR();
+	svr->StopVR();
 	if (cfg.vLog)
 		outputLog << ".. Done" << std::endl;
 
@@ -397,29 +398,30 @@ __declspec(dllexport) stTexture* GetUIRenderTexture(int curEye)
 
 __declspec(dllexport) void Recenter()
 {
-	svr.Recenter();
+	svr->Recenter();
 }
 
 __declspec(dllexport) void UpdateConfiguration(Configuration newConfig)
 {
 	cfg = newConfig;
-	if (svr.isEnabled())
-		svr.MakeIPDOffset();
+	if (svr->isEnabled())
+		svr->MakeIPDOffset();
 }
 
 __declspec(dllexport) void SetFramePose()
 {
-	svr.SetFramePose();
+	svr->SetFramePose();
+	
 }
 
 __declspec(dllexport) void WaitGetPoses()
 {
-	svr.WaitGetPoses();
+	svr->WaitGetPoses();
 }
 
 __declspec(dllexport) uMatrix GetFramePose(poseType posetype, int eye)
 {
-	return svr.GetFramePose(posetype, eye);
+	return svr->GetFramePose(posetype, eye);
 }
 
 __declspec(dllexport) void SetThreadedEye(int eye)
@@ -429,8 +431,12 @@ __declspec(dllexport) void SetThreadedEye(int eye)
 
 __declspec(dllexport) void RenderVR()
 {
-	if(enabled && threadedEye == 1)
-		svr.Render(BackBufferCopyShared[0].pTexture, BackBufferCopyShared[1].pTexture);
+	if (enabled && threadedEye == 1)
+	{
+		svr->Render(BackBufferCopyShared[0].pTexture, BackBufferCopyShared[1].pTexture);
+		//outputLog << svr->GetErrors();
+		//outputLog << rend->GetErrors();
+	}
 }
 
 __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD)
@@ -448,8 +454,8 @@ __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD)
 
 		if (enableVR)
 		{
-			projectionMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::Projection, curEyeView)._m);
-			viewMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::EyeOffset, curEyeView)._m) * (DirectX::XMMATRIX)(svr.GetFramePose(poseType::hmdPosition, curEyeView)._m);
+			projectionMatrix = (DirectX::XMMATRIX)(svr->GetFramePose(poseType::Projection, curEyeView)._m);
+			viewMatrix = (DirectX::XMMATRIX)(svr->GetFramePose(poseType::EyeOffset, curEyeView)._m) * (DirectX::XMMATRIX)(svr->GetFramePose(poseType::hmdPosition, curEyeView)._m);
 			viewMatrix = DirectX::XMMatrixTranspose(viewMatrix);
 			viewMatrix = DirectX::XMMatrixInverse(0, viewMatrix);
 
@@ -473,7 +479,7 @@ __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD)
 		{
 			if (enableFloatingHUD)
 			{
-				uMatrix tProj = svr.GetFramePose(poseType::Projection, curEyeView);
+				uMatrix tProj = svr->GetFramePose(poseType::Projection, curEyeView);
 				tProj._m[2] = 0.0f;
 				projectionMatrix = (DirectX::XMMATRIX)(tProj._m);
 				viewMatrix = DirectX::XMMatrixIdentity();
@@ -508,10 +514,10 @@ __declspec(dllexport) void RenderFloatingScreen()
 		if (bbcResource) { bbcResource->Release(); bbcResource = nullptr; }
 		if (bbResource) { bbResource->Release(); bbResource = nullptr; }
 
-		DirectX::XMMATRIX projectionMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::Projection, threadedEye)._m);
-		DirectX::XMMATRIX viewMatrix = (DirectX::XMMATRIX)(svr.GetFramePose(poseType::EyeOffset, threadedEye)._m) * (DirectX::XMMATRIX)(svr.GetFramePose(poseType::hmdPosition, threadedEye)._m);
-		viewMatrix = DirectX::XMMatrixTranspose(viewMatrix);
-		viewMatrix = DirectX::XMMatrixInverse(0, viewMatrix);
+		DirectX::XMMATRIX projectionMatrix = (DirectX::XMMATRIX)(svr->GetFramePose(poseType::Projection, threadedEye)._m);
+		DirectX::XMMATRIX viewMatrix = (DirectX::XMMATRIX)(svr->GetFramePose(poseType::EyeOffset, threadedEye)._m) * (DirectX::XMMATRIX)(svr->GetFramePose(poseType::hmdPosition, threadedEye)._m);
+		//viewMatrix = DirectX::XMMatrixTranspose(viewMatrix);
+		//viewMatrix = DirectX::XMMatrixInverse(0, viewMatrix);
 
 		int offEye[] = { 1, 0 };
 		int eyeT = offEye[threadedEye];
@@ -540,7 +546,7 @@ __declspec(dllexport) void SetTexture()
 
 __declspec(dllexport) POINT GetBufferSize()
 {
-	return svr.GetBufferSize();
+	return svr->GetBufferSize();
 }
 
 __declspec(dllexport) void ResizeWindow(HWND hwnd, int width, int height)
@@ -564,7 +570,7 @@ __declspec(dllexport) void ResizeWindow(HWND hwnd, int width, int height)
 
 __declspec(dllexport) bool SetActiveJSON(const char* filePath, int size)
 {
-	if (svr.isEnabled())
+	if (svr->isEnabled())
 	{
 		vr::EVRInputError iError = vr::VRInputError_None;
 		if (size > 0) {
@@ -579,7 +585,7 @@ __declspec(dllexport) bool SetActiveJSON(const char* filePath, int size)
 
 __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCallback)
 {
-	if (svr.isEnabled())
+	if (svr->isEnabled())
 	{
 		vr::VRActiveActionSet_t actionSet = { 0 };
 		actionSet.ulActionSet = steamInput.game.setHandle;

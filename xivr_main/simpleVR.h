@@ -6,6 +6,7 @@
 #include <DirectXMath.h>
 #include <openvr.h>
 #include <openvr_capi.h>
+#include <iostream>
 
 #include "stCommon.h"
 #include "clsController.h"
@@ -33,12 +34,15 @@ class simpleVR
 	ControllerList controllerID;
 	clsController controller;
 	Configuration* cfg;
+	std::stringstream logError;
 
+private:
 	void InitalizeVR();
 
 public:
 	simpleVR(Configuration* config);
 	~simpleVR();
+	
 	bool StartVR();
 	bool StopVR();
 	bool isEnabled();
@@ -49,4 +53,5 @@ public:
 	void Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye);
 	void WaitGetPoses();
 	void MakeIPDOffset();
+	std::string GetErrors();
 };

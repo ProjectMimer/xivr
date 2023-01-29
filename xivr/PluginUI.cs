@@ -48,6 +48,11 @@ namespace xivr
 
                 ImGui.BeginChild("Misc", new Vector2(300, 150) * ImGuiHelpers.GlobalScale, true);
 
+                if (ImGui.Checkbox("Enable motion controllers", ref xivr.cfg.data.motioncontrol))
+                {
+                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
+                }
+
                 if (ImGui.Checkbox("Enable first person controller locomotion", ref xivr.cfg.data.conloc))
                 {
                     xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
@@ -63,7 +68,7 @@ namespace xivr
                     xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
                 }
 
-                if (ImGui.Checkbox("Enable motion controllers", ref xivr.cfg.data.motioncontrol))
+                if (ImGui.Checkbox("First person mode enable body", ref xivr.cfg.data.fpmShowBody))
                 {
                     xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
                 }
@@ -139,13 +144,14 @@ namespace xivr
             bool swapEyesUI = xivr.cfg.data.swapEyesUI;
             float offsetAmountX = xivr.cfg.data.offsetAmountX;
             float offsetAmountY = xivr.cfg.data.offsetAmountY;
+            float offsetAmountZ = xivr.cfg.data.offsetAmountZ;
             int targetCursorSize = xivr.cfg.data.targetCursorSize;
 
 
             ImGui.BeginChild("UI", new Vector2(300, 250) * ImGuiHelpers.GlobalScale, true);
 
-            ImGui.Text("UI Distance"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:zoff", ref uiOffsetZ);
-            ImGui.Text("UI Size"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:zscale", ref uiOffsetScale);
+            ImGui.Text("UI Distance"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:uizoff", ref uiOffsetZ);
+            ImGui.Text("UI Size"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:uizscale", ref uiOffsetScale);
             ImGui.Text("IPD Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:ipdoff", ref ipdOffset, -10, 10, "%f");
 
             ImGui.Text("Swap Eyes"); ImGui.SameLine(); ImGui.Checkbox("##DrawUISetings:swapeyes", ref swapEyes);
@@ -153,6 +159,7 @@ namespace xivr
 
             ImGui.Text("X Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:xoff", ref offsetAmountX, -150, 150, "%.0f");
             ImGui.Text("Y Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:yoff", ref offsetAmountY, -150, 150, "%.0f");
+            ImGui.Text("Z Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:zoff", ref offsetAmountZ, -150, 150, "%.0f");
 
             ImGui.Text("Target Cursor Size"); ImGui.SameLine(); ImGui.SliderInt("##DrawUISetings:targetcur", ref targetCursorSize, 50, 255);
 
@@ -176,6 +183,9 @@ namespace xivr
 
             if (xivr.cfg.data.offsetAmountY != offsetAmountY)
                 xivr.Plugin.doUpdate = true; xivr.cfg.data.offsetAmountY = offsetAmountY;
+
+            if (xivr.cfg.data.offsetAmountZ != offsetAmountZ)
+                xivr.Plugin.doUpdate = true; xivr.cfg.data.offsetAmountZ = offsetAmountZ;
 
             if (xivr.cfg.data.targetCursorSize != targetCursorSize)
                 xivr.Plugin.doUpdate = true; xivr.cfg.data.targetCursorSize = targetCursorSize;

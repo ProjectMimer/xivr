@@ -19,10 +19,6 @@ namespace xivr
 {
     public class xivr : IDalamudPlugin
     {
-        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void UpdateConfiguration(Configuration.cfgData config);
-
-
         public static xivr Plugin { get; private set; }
         public string Name => "xivr";
 
@@ -83,7 +79,7 @@ namespace xivr
                             Marshal.PrelinkAll(typeof(xivr_hooks));
                             FindWindowHandle();
                             counter = 50;
-                            UpdateConfiguration(cfg.data);
+                            Imports.UpdateConfiguration(cfg.data);
                             pluginReady = xivr_hooks.Initialize();
                         }
                         catch (Exception e) { PluginLog.LogError($"Failed loading vr dll\n{e}"); }
@@ -251,11 +247,11 @@ namespace xivr
         {
             if (GameWindowHandle == IntPtr.Zero)
             {
-                while ((GameWindowHandle = xivr_hooks.FindWindowEx(IntPtr.Zero, GameWindowHandle, "FFXIVGAME", "FINAL FANTASY XIV")) != IntPtr.Zero)
+                while ((GameWindowHandle = Imports.FindWindowEx(IntPtr.Zero, GameWindowHandle, "FFXIVGAME", "FINAL FANTASY XIV")) != IntPtr.Zero)
                 {
-                    _ = xivr_hooks.GetWindowThreadProcessId(GameWindowHandle, out int pid);
+                    _ = Imports.GetWindowThreadProcessId(GameWindowHandle, out int pid);
 
-                    if (pid == Environment.ProcessId && xivr_hooks.IsWindowVisible(GameWindowHandle))
+                    if (pid == Environment.ProcessId && Imports.IsWindowVisible(GameWindowHandle))
                         break;
                 }
             }
@@ -268,7 +264,7 @@ namespace xivr
             {
                 if (doUpdate == true)
                 {
-                    UpdateConfiguration(cfg.data);
+                    Imports.UpdateConfiguration(cfg.data);
                     PluginLog.Log("Setup Complete");
                     doUpdate = false;
                 }
@@ -300,7 +296,7 @@ namespace xivr
                     else if (counter == 25)
                     {
                         xivr_hooks.Start();
-                        Point hmdSize = xivr_hooks.GetBufferSize();
+                        Point hmdSize = Imports.GetBufferSize();
                         cfg.data.hmdWidth = hmdSize.X;
                         cfg.data.hmdHeight = hmdSize.Y;
                         cfg.Save();
@@ -333,7 +329,7 @@ namespace xivr
                 if (cfg.data.runRecenter == true)
                 {
                     cfg.data.runRecenter = false;
-                    xivr_hooks.Recenter();
+                    Imports.Recenter();
                 }
 
                 xivr_hooks.Update(framework);

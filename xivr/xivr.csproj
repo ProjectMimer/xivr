@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Authors></Authors>
 		<Company></Company>
-		<Version>0.0.0.10</Version>
+		<Version>0.0.1.0</Version>
 		<Description>XIVR.</Description>
 		<Copyright></Copyright>
 		<PackageProjectUrl></PackageProjectUrl>

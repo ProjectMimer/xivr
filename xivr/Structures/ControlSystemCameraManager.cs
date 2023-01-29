@@ -44,24 +44,31 @@ namespace xivr.Structures
     }
 
 
+    [StructLayout(LayoutKind.Explicit, Size = 0x10)]
+    public unsafe struct CameraBase
+    {
+        [FieldOffset(0x00)] public UInt64* vtbl;
+        [FieldOffset(0x08)] public UInt64 uk1;
+    }
+
     [StructLayout(LayoutKind.Explicit, Size = 0x2B0)]
     public unsafe struct GameCamera
     {
-        [FieldOffset(0x00)] public UInt64 CameraBase;
+        [FieldOffset(0x00)] public CameraBase CameraBase;
         [FieldOffset(0x10)] public RawGameCamera Camera;
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 0x2E0)]
     public struct LowCutCamera
     {
-        [FieldOffset(0x00)] public UInt64 CameraBase;
+        [FieldOffset(0x00)] public CameraBase CameraBase;
         [FieldOffset(0x10)] public RawGameCamera Camera;
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 0x300)]
     public unsafe struct LobbyCamera
     {
-        [FieldOffset(0x00)] public UInt64 CameraBase;
+        [FieldOffset(0x00)] public CameraBase CameraBase;
         [FieldOffset(0x10)] public RawGameCamera Camera;
         [FieldOffset(0x2F8)] public void* LobbyExcelSheet;
     }
@@ -69,14 +76,14 @@ namespace xivr.Structures
     [StructLayout(LayoutKind.Explicit, Size = 0x300)]
     public struct Camera3
     {
-        [FieldOffset(0x00)] public UInt64 CameraBase;
+        [FieldOffset(0x00)] public CameraBase CameraBase;
         [FieldOffset(0x10)] public RawGameCamera Camera;
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 0x350)]
     public struct Camera4
     {
-        [FieldOffset(0x00)] public UInt64 CameraBase;
+        [FieldOffset(0x00)] public CameraBase CameraBase;
         [FieldOffset(0x10)] public RawGameCamera Camera;
     }
 }

@@ -578,3 +578,10 @@ void BasicRenderer::Release()
 	dev = nullptr;
 	devcon = nullptr;
 }
+
+std::string BasicRenderer::GetErrors()
+{
+	std::string curLog = logError.str();
+	logError.str("");
+	return curLog;
+}

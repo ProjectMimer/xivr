@@ -28,4 +28,8 @@ struct Configuration
     float ipdOffset;
     bool vLog;
     bool hmdloc;
+    int targetCursorSize;
+    bool fpmShowBody;
+    bool fpmShowWeapon;
+    float offsetAmountZ;
 };

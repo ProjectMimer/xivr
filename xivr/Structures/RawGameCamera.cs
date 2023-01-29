@@ -45,7 +45,7 @@ namespace xivr.Structures
         [FieldOffset(0x138)] public float MinVRotation;
         [FieldOffset(0x13C)] public float MaxVRotation;
         [FieldOffset(0x150)] public float Tilt;
-        [FieldOffset(0x160)] public int Mode; // Camera mode? (0 = 1st person, 1 = 3rd person, 2+ = weird controller mode? cant look up/down)
+        [FieldOffset(0x160)] public CameraModes Mode; // Camera mode? (0 = 1st person, 1 = 3rd person, 2+ = weird controller mode? cant look up/down)
         [FieldOffset(0x16C)] public float InterpolatedZoom;
         [FieldOffset(0x1A0)] public float ViewX;
         [FieldOffset(0x1A4)] public float ViewY;

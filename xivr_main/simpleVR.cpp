@@ -3,7 +3,6 @@
 
 simpleVR::simpleVR(Configuration* config) : cfg(config)
 {
-	InitalizeVR();
 }
 
 simpleVR::~simpleVR()
@@ -42,7 +41,7 @@ bool simpleVR::StartVR()
 {
 	if (!vr::VR_IsHmdPresent())
 	{
-		InitalizeVR();
+		//InitalizeVR();
 		_isConnected = false;
 		return _isConnected;
 	}
@@ -324,13 +323,13 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye)
 
 		vr::EVRCompositorError error = vr::VRCompositorError_None;
 		error = vr::VRCompositor()->Submit(vr::Eye_Left, &completeTexture[0], &_bound, vr::Submit_Default);
-		if (error) {
-			int a = 1;
+		if (error && cfg->vLog) {
+			logError << "SimpleVR VRCompositor Error: " << std::hex << error << std::endl;
 		}
 
 		error = vr::VRCompositor()->Submit(vr::Eye_Right, &completeTexture[1], &_bound, vr::Submit_Default);
-		if (error) {
-			int a = 1;
+		if (error && cfg->vLog) {
+			logError << "SimpleVR VRCompositor Error: " << std::hex << error << std::endl;
 		}
 
 		SetFramePose();
@@ -349,4 +348,11 @@ void simpleVR::MakeIPDOffset()
 
 	eyeViewMatrix[0]._m[12] += -(cfg->ipdOffset / 1000);
 	eyeViewMatrix[1]._m[12] += +(cfg->ipdOffset / 1000);
+}
+
+std::string simpleVR::GetErrors()
+{
+	std::string curLog = logError.str();
+	logError.str("");
+	return curLog;
 }

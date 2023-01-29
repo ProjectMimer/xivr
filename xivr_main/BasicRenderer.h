@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <DirectXMath.h>
 #include <D3Dcompiler.h>
+#include <iostream>
 
 #include "stCommon.h"
 #include "Configuration.h"
@@ -45,6 +46,7 @@ class BasicRenderer
 
 	stMatrixBuffer matrixBuffer = stMatrixBuffer();
 	stMouseBuffer mouseBuffer = stMouseBuffer();
+	std::stringstream logError;
 
 	Configuration* cfg;
 	float clearColor[4];
@@ -70,4 +72,5 @@ public:
 	void SetMousePosition(HWND hwnd, int width, int height);
 	void DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rtv, ID3D11ShaderResourceView* srv, DirectX::XMMATRIX projectionMatrix, DirectX::XMMATRIX viewMatrix, bool isOrthog = false);
 	void Release();
+	std::string GetErrors();
 };
