@@ -159,24 +159,24 @@ Fixed shadow glitching at edge of vision
 Changes to loading order if it crashed previously please try this and report back
 If started from the title screen settings will auto apply if started from the game please run `/xivr loadcon` after starting vr
 
-v0.0.6
+v0.0.0.6
 Fixed controller zoom not working
 Updated to new game version
 
-v0.0.8
+v0.0.0.8
 Implemented automatic resolution resize (wont work on first load because it needs to fetch headset data once from Steam VR eye resolution)
 Fixed certain UI elements displaying differently in each eye
 Added multiple new menu entries for existing chat commands 
 Changed loading order, might crash more or less please report back 
 
-v0.0.9
+v0.0.0.9
 Fixed Dresser Camera
 Added IPD slider
 New VR settings menu
 Added verbose logging, logs are saved to dalamud.log in the XIVLauncher folder
 Less Crashing
 
-v0.0.10 
+v0.0.0.10 
 Support for 6.3
 Added first person locomotion based on head tracking, look in the direction you want to go
 Added vertical support for first person locomotion, point or look in the direction you want to fly/swim
