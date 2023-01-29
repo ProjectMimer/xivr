@@ -158,3 +158,44 @@ Fixed floating UI scaling curvature bug
 Fixed shadow glitching at edge of vision
 Changes to loading order if it crashed previously please try this and report back
 If started from the title screen settings will auto apply if started from the game please run `/xivr loadcon` after starting vr
+
+v0.0.6
+Fixed controller zoom not working
+Updated to new game version
+
+v0.0.8
+Implemented automatic resolution resize (wont work on first load because it needs to fetch headset data once from Steam VR eye resolution)
+Fixed certain UI elements displaying differently in each eye
+Added multiple new menu entries for existing chat commands 
+Changed loading order, might crash more or less please report back 
+
+v0.0.9
+Fixed Dresser Camera
+Added IPD slider
+New VR settings menu
+Added verbose logging, logs are saved to dalamud.log in the XIVLauncher folder
+Less Crashing
+
+v0.0.10 
+Support for 6.3
+Added first person locomotion based on head tracking, look in the direction you want to go
+Added vertical support for first person locomotion, point or look in the direction you want to fly/swim
+Fixed unintended first person camera behavior 
+
+v0.0.1.0 HANDTRACKING UPDATE
+Disabled culling in first person
+Mounts now are visible in first person
+All combat effects now are visible in first person
+Added toggle to show player body in first person without head
+Added hand tracking in first person (if controllers and body is enabled)
+Added Z-Offset slider
+Removed flickering UI target arrow
+Added in world target arrow (by @AJBats)
+Added size slider for target arrow (by @AJBats)
+
+Known Issues
+First person camera location might be off, please use the offset sliders
+If headgear is hidden using the toggle in the menu then the player head wont hide
+While in first person with tracking the arms of some NPCs might randomly break
+Gear polygon stretching from hand
+Its hard to target the exits of player houses in first person
