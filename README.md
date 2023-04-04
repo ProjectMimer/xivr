@@ -1,6 +1,3 @@
-***WARNING - SEIZURES*** 
-**If you are prone to epileptic seizures, DO NOT PLAY THIS MOD. Your desktop screen will flicker rapidly while VR is active.** (The in-headset view won't flicker.)
-
 *Throw wide the gates, that we may pass!*
 
 **XIVR** is an open-source project that aims to add VR support to the critically acclaimed Japanese MMORPG which has an expanded free trial with no restrictions on playtime. This open-source mod is purely based on original code, and does not include any copyrighted materials. While, to our knowledge, the mod is undetectable and fully usable on live servers, using this mod is against the TOS. Use at your own risk; we are not liable for damages caused.
