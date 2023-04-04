@@ -201,7 +201,6 @@ Gear polygon stretching from hand
 Its hard to target the exits of player houses in first person
 
 v0.0.3.0 Now actually playable edition
-
 UI
 →added toggle to render UI inside the game world with occlusion /xivr uidepth
 →added UI z-offset and scale sliders
