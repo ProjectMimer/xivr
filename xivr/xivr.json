@@ -3,8 +3,8 @@
   "Name": "XIVR - VR Mod",
   "InternalName": "xivr",
   "Punchline": "Mod to allow VR",
-  "AssemblyVersion": "0.0.1.0",
-  "Description": "Mod to allow vr. Requires SteamVR Not the steam version of the game\nWARNING - SEIZURES If you are prone to epileptic seizures, DO NOT PLAY THIS MOD. Your desktop screen will flicker rapidly while VR is active. (The in-headset view won't flicker.)\n** Requires SteamVR **\nPlease click the globe icon for detailed instructions.\nChat/FAQ: flat2vr.com",
+  "AssemblyVersion": "0.0.3.1",
+  "Description": "Mod to allow vr. Requires SteamVR Not the steam version of the game\n** Requires SteamVR **\nPlease click the globe icon for detailed instructions.\nChat/FAQ: flat2vr.com",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/ProjectMimer/xivr",
   "Tags": [
