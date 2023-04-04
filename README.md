@@ -199,3 +199,58 @@ If headgear is hidden using the toggle in the menu then the player head wont hid
 While in first person with tracking the arms of some NPCs might randomly break
 Gear polygon stretching from hand
 Its hard to target the exits of player houses in first person
+
+v0.0.3.0 Now actually playable edition
+
+UI
+→added toggle to render UI inside the game world with occlusion /xivr uidepth
+→added UI z-offset and scale sliders
+→fixed UI z-offset and scale chat commands
+→while VR is active the mouse will be locked to the game window, you can alt tab to click on other windows
+→added ability to click on UI elements that are off screen because the game resolution is too high for the users display (up to 3x the res)
+→Dalamud (imgUI) is now visible in the headset
+
+controls
+→added ability to point at UI using motion controls to click on UI elements
+→added ability to point into the game world using motion controllers to target, interact and place AOE attacks
+→added ability to target, interact with objects and place AOE attacks via head tracking when using xbox controllers or kbm
+→added ability to move housing furniture via motion controls
+→added ability to click the mouse via the right trigger on both normal and motion controllers
+→the outline of targets you are looking or pointing at will highlight 
+→added native two button controller mappings (WMR, Vive Focus3/XR, Pico, Touch, Quest etc.)
+→long pressing a stick down on motion controllers now changes its mode, the left stick switches from movement to dpad while the right stick it switches to a scroll wheel
+→fixed being unable to zoom in on the map using controllers in first person
+→added option to display weapons in the hands in first person
+→added controller haptics for stick mode switching and highlighting potential targets with motion controllers 
+→fixed being unable to target certain things like housing doors in first person
+→pressing the right stick while holding the right bumper switches into a mode for controlling Dalamud, in this mode the face buttons are replaced by esc, F10-12 so you can remap them freely
+
+tracking
+→in first person mode the camera now gets recentered to the head location of the player model
+→in first person mode there no longer is a gap in the neck
+→the upper body of the player model is now tracked in accordance to head movement when unmounted
+→fixed a issue with the arms of certain NPCs breaking when using motion controls
+→removed option to hide body in first person
+→added Y- & Z-Offset slider for first person
+→reenabled head tracking in cutscenes (still as buggy as before)
+→fixed player head not hiding correctly when headgear is set to invisible
+→upper torso tracking is disabled when using controller or head turning and instead the torso is turning to counteract the turning of the player model
+Note: for now all tracking code is disable when mounted
+
+rendering
+→added 2D mode /xivr mode2d , recommended if you are unable to get double the FPS (not compatible with asymmetric projection)
+→added asymmetric projection toggle, enabling this will improve the performance (requires XIVR restart)
+→fixed a DirectX bug that stopped SteamVR from initializing (Thanks to @joko for helping us debug)
+→the desktop screen no longer flickers and instead displays black
+→implemented ASW 2.0
+→optimized shadow map for 100°FOV headsets
+→added ultra wide shadow map toggle, for use with widescreen headsets such as the Pimax and Xtal
+→fixed internal render resolution slightly decreasing every time you turn VR on and off
+→fixed a stereo mismatch in the rendering of the UI
+→removed broken post processing effects
+Note: changing resolution in SteamVR now requiers a full game restart
+
+other
+→the refresh rate limit now gets set to unlimited automatically but requires a restart of the game to take effect
+→fixed a bug with under water fx appearing above water
+→the mod now is available in 日本語 (Japanese)
