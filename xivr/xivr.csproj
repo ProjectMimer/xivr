@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Authors></Authors>
 		<Company></Company>
-		<Version>0.0.1.0</Version>
+		<Version>0.0.3.1</Version>
 		<Description>XIVR.</Description>
 		<Copyright></Copyright>
 		<PackageProjectUrl></PackageProjectUrl>
@@ -54,10 +54,16 @@
 		<TargetPath>config/actions.json</TargetPath>
 		</ContentWithTargetPath>
 
-		<None Remove="../config/index-marulu-221110.json" />
-		<ContentWithTargetPath Include="../config/index-marulu-221110.json">
+		<None Remove="../config/index-marulu-230324.json" />
+		<ContentWithTargetPath Include="../config/index-marulu-230324.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		<TargetPath>config/index-marulu-221110.json</TargetPath>
+		<TargetPath>config/index-marulu-230324.json</TargetPath>
+		</ContentWithTargetPath>
+
+		<None Remove="../config/touch-marulu-230324.json" />
+		<ContentWithTargetPath Include="../config/touch-marulu-230324.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<TargetPath>config/touch-marulu-230324.json</TargetPath>
 		</ContentWithTargetPath>
 	</ItemGroup>
 
