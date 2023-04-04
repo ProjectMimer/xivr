@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace xivr.Structures
 {
@@ -10,10 +6,14 @@ namespace xivr.Structures
 	{
 		movement,
 		rotation,
-		leftClick,
+        leftHandPose,
+        rightHandPose,
+        leftHandAnim,
+        rightHandAnim,
+        leftClick,
 		rightClick,
 		recenter,
-		shift,
+        shift,
 		alt,
 		control,
 		escape,
@@ -44,7 +44,9 @@ namespace xivr.Structures
 		xbox_pad_left,
 		xbox_pad_right,
 		xbox_start,
-		xbox_select
+		xbox_select,
+		haptics_left,
+		haptics_right
 	}
 
 

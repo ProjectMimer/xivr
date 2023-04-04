@@ -12,6 +12,8 @@ struct inputActionGame
 	vr::VRActionHandle_t rotation;
 	vr::VRActionHandle_t lefthand;
 	vr::VRActionHandle_t righthand;
+	vr::VRActionHandle_t lefthand_anim;
+	vr::VRActionHandle_t righthand_anim;
 	vr::VRActionHandle_t leftclick;
 	vr::VRActionHandle_t rightclick;
 
@@ -56,6 +58,9 @@ struct inputActionGame
 	vr::VRActionHandle_t xbox_start;
 	vr::VRActionHandle_t xbox_select;
 
+	vr::VRActionHandle_t haptic_left;
+	vr::VRActionHandle_t haptic_right;
+
 };
 
 struct inputController
@@ -67,6 +72,10 @@ enum buttonLayout
 {
 	movement,
 	rotation,
+	leftHandPose,
+	rightHandPose,
+	leftHandAnim,
+	rightHandAnim,
 	leftClick,
 	rightClick,
 	recenter,
@@ -101,7 +110,9 @@ enum buttonLayout
 	xbox_pad_left,
 	xbox_pad_right,
 	xbox_start,
-	xbox_select
+	xbox_select,
+	haptic_left,
+	haptic_right
 };
 
 void setActionHandlesGame(inputController* input);

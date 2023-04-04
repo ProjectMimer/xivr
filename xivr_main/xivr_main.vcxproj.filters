@@ -42,9 +42,6 @@
     <ClInclude Include="stCommon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="clsController.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="stButtonList.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -60,6 +57,12 @@
     <ClInclude Include="ffxivRenderTargetManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ffxivCameraManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderObject.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -71,13 +74,10 @@
     <ClCompile Include="BasicRenderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="clsController.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="clsControllerSteamVR.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="SteamVRInput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

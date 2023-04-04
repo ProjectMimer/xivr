@@ -150,6 +150,16 @@
                "output" : "/actions/game/in/recenter"
             }
          ],
+         "haptics" : [
+            {
+               "output" : "/actions/game/out/haptic_left",
+               "path" : "/user/hand/left/output/haptic"
+            },
+            {
+               "output" : "/actions/game/out/haptic_right",
+               "path" : "/user/hand/right/output/haptic"
+            }
+         ],
          "poses" : [
             {
                "output" : "none",
@@ -752,9 +762,9 @@
    },
    "category" : "steamvr_input",
    "controller_type" : "knuckles",
-   "description" : "Default binding values for legacy apps using the Index Controller",
+   "description" : "",
    "interaction_profile" : "",
-   "name" : "Index Controller用に保存されたffxiv_dx11設定",
+   "name" : "XIVR Default Index Bindings",
    "options" : {
       "mirror_actions" : false,
       "simulated_controller_type" : "none"

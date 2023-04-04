@@ -9,8 +9,9 @@ union uMatrix
 
 enum poseType
 {
-	Projection = 0,
-	EyeOffset = 1,
+	None = 0,
+	Projection = 1,
+	EyeOffset = 5,
 	hmdPosition = 10,
 	LeftHand = 20,
 	RightHand = 30,

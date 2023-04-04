@@ -165,8 +165,8 @@ xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configurat
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BasicRenderer.h" />
-    <ClInclude Include="clsController.h" />
     <ClInclude Include="Configuration.h" />
+    <ClInclude Include="ffxivCameraManager.h" />
     <ClInclude Include="ffxivDevice.h" />
     <ClInclude Include="ffxivRenderTargetManager.h" />
     <ClInclude Include="ffxivSwapChain.h" />
@@ -178,13 +178,13 @@ xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configurat
     <ClInclude Include="stCommon.h" />
     <ClInclude Include="stDX11.h" />
     <ClInclude Include="SteamVRInput.h" />
+    <ClInclude Include="RenderObject.h" />
     <ClInclude Include="stsdkTypes.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BasicRenderer.cpp" />
-    <ClCompile Include="clsController.cpp" />
-    <ClCompile Include="clsControllerSteamVR.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="RenderObject.cpp" />
     <ClCompile Include="simpleVR.cpp" />
     <ClCompile Include="SteamVRInput.cpp" />
   </ItemGroup>

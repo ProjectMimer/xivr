@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using FFXIVClientStructs.Attributes;
+using FFXIVClientStructs.Interop.Attributes;
 
 namespace xivr.Structures
 {
@@ -16,15 +17,11 @@ namespace xivr.Structures
     public unsafe struct RawGameCamera
     {
         [FieldOffset(0x0)] public vtblRawGameCamera* vtbl;
-        [FieldOffset(0x50)] public float X;
-        [FieldOffset(0x54)] public float Y;
-        [FieldOffset(0x58)] public float Z;
-        [FieldOffset(0x80)] public float LookAtX;
-        [FieldOffset(0x84)] public float LookAtY;
-        [FieldOffset(0x88)] public float LookAtZ;
-        [FieldOffset(0x90)] public float UpX;
-        [FieldOffset(0x94)] public float UpY;
-        [FieldOffset(0x98)] public float UpZ;
+        [FieldOffset(0x50)] public Vector3 Position;
+        [FieldOffset(0x80)] public Vector3 LookAt;
+        [FieldOffset(0x90)] public float uk1a;
+        [FieldOffset(0x94)] public float uk1b;
+        [FieldOffset(0x98)] public float uk1c;
         [FieldOffset(0xA0)] public Matrix4x4 ViewMatrix;
         [FieldOffset(0xE0)] public CameraConstantBuffer* BufferData;
         [FieldOffset(0xE8)] public float unk2;

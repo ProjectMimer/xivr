@@ -171,58 +171,80 @@
       {
         "name" : "/actions/game/in/xbox_pad_select",
         "type" : "boolean"
+      },
+      {
+        "name": "/actions/game/in/lefthand_anim",
+        "type": "skeleton",
+        "skeleton": "/skeleton/hand/left"
+      },
+      {
+        "name": "/actions/game/in/righthand_anim",
+        "type": "skeleton",
+        "skeleton": "/skeleton/hand/right"
+      },
+      {
+        "name" : "/actions/game/out/haptic_left",
+        "type" : "vibration"
+      },
+      {
+        "name" : "/actions/game/out/haptic_right",
+        "type" : "vibration"
       }
    ],
    "default_bindings" : [
 	{
-        "binding_url" : "index-marulu-221110.json",
+        "binding_url" : "index-marulu-230324.json",
         "controller_type" : "knuckles"
+	},
+    {
+        "binding_url" : "touch-marulu-230324.json",
+        "controller_type" : "oculus_touch"
 	}
    ],
    "localization" : [
-      {
-        "/actions/game" : "InGame",
-        "/actions/game/in/movement" : "Movement",
-        "/actions/game/in/rotation" : "Rotate",
-        "/actions/game/in/lefthand" : "Left Hand",
-		"/actions/game/in/righthand" : "Right Hand",
-        "/actions/game/in/leftclick" : "Left Click",
-        "/actions/game/in/rightclick" : "Right Click",
+    {
+      "/actions/game" : "InGame",
+      "/actions/game/in/movement" : "Movement",
+      "/actions/game/in/rotation" : "Rotate",
+      "/actions/game/in/lefthand" : "Left Hand",
+      "/actions/game/in/righthand" : "Right Hand",
+      "/actions/game/in/leftclick" : "Left Click",
+      "/actions/game/in/rightclick" : "Right Click",
 
-        "/actions/game/in/recenter" : "Recenter",
-        "/actions/game/in/shift" : "Shift",
-        "/actions/game/in/alt" : "Alt",
-        "/actions/game/in/control" : "Control",
-        "/actions/game/in/escape" : "Escape",
-        "/actions/game/in/scrollup" : "ScrollUp",
-        "/actions/game/in/scrolldown" : "ScrollDown",
-	"/actions/game/in/button01" : "F1",
-	"/actions/game/in/button02" : "F2",
-	"/actions/game/in/button03" : "F3",
-	"/actions/game/in/button04" : "F4",
-	"/actions/game/in/button05" : "F5",
-	"/actions/game/in/button06" : "F6",
-	"/actions/game/in/button07" : "F7",
-	"/actions/game/in/button08" : "F8",
-	"/actions/game/in/button09" : "F9",
-	"/actions/game/in/button10" : "F10",
-	"/actions/game/in/button11" : "F11",
-	"/actions/game/in/button12" : "F12",
+      "/actions/game/in/recenter" : "Recenter",
+      "/actions/game/in/shift" : "Shift",
+      "/actions/game/in/alt" : "Alt",
+      "/actions/game/in/control" : "Control",
+      "/actions/game/in/escape" : "Escape",
+      "/actions/game/in/scrollup" : "ScrollUp",
+      "/actions/game/in/scrolldown" : "ScrollDown",
+      "/actions/game/in/button01" : "F1",
+      "/actions/game/in/button02" : "F2",
+      "/actions/game/in/button03" : "F3",
+      "/actions/game/in/button04" : "F4",
+      "/actions/game/in/button05" : "F5",
+      "/actions/game/in/button06" : "F6",
+      "/actions/game/in/button07" : "F7",
+      "/actions/game/in/button08" : "F8",
+      "/actions/game/in/button09" : "F9",
+      "/actions/game/in/button10" : "F10",
+      "/actions/game/in/button11" : "F11",
+      "/actions/game/in/button12" : "F12",
 
-	"/actions/game/in/xbox_button_y" : "XBox Button Y",
-	"/actions/game/in/xbox_button_x" : "XBox Button X",
-	"/actions/game/in/xbox_button_a" : "XBox Button A",
-	"/actions/game/in/xbox_button_b" : "XBox Button B",
-	"/actions/game/in/xbox_left_trigger" : "XBox Left Trigger",
-	"/actions/game/in/xbox_left_bumper" : "XBox Left Bumper",
-	"/actions/game/in/xbox_left_stick_click" : "XBox Left Stick (Click)",
-	"/actions/game/in/xbox_right_trigger" : "XBox Right Trigger",
-	"/actions/game/in/xbox_right_bumper" : "XBox Right Bumper",
-	"/actions/game/in/xbox_right_stick_click" : "XBox Right Stick (Click)",
+      "/actions/game/in/xbox_button_y" : "XBox Button Y",
+      "/actions/game/in/xbox_button_x" : "XBox Button X",
+      "/actions/game/in/xbox_button_a" : "XBox Button A",
+      "/actions/game/in/xbox_button_b" : "XBox Button B",
+      "/actions/game/in/xbox_left_trigger" : "XBox Left Trigger",
+      "/actions/game/in/xbox_left_bumper" : "XBox Left Bumper",
+      "/actions/game/in/xbox_left_stick_click" : "XBox Left Stick (Click)",
+      "/actions/game/in/xbox_right_trigger" : "XBox Right Trigger",
+      "/actions/game/in/xbox_right_bumper" : "XBox Right Bumper",
+      "/actions/game/in/xbox_right_stick_click" : "XBox Right Stick (Click)",
 
-        "/actions/game/in/xbox_start" : "XBox Start",
-	"/actions/game/in/xbox_select" : "XBox Select",
-        "language_tag" : "en"
-      }
+      "/actions/game/in/xbox_start" : "XBox Start",
+      "/actions/game/in/xbox_select" : "XBox Select",
+      "language_tag" : "en"
+    }
    ]
 }

@@ -2,6 +2,7 @@
 #include <dxgi1_2.h>
 #include <d3d11.h>
 #include <sstream>
+#include "framework.h"
 
 struct stDX11
 {
@@ -14,8 +15,8 @@ struct stDX11
 	IDXGISwapChain1* swapchain;
 	ID3D11RenderTargetView* backbuffer;
 
-	IDXGIFactory2* factory;
-	DWORD					occlusionCookie;
+	IDXGIFactory* factory;
+	DWORD occlusionCookie;
 
 	std::stringstream logError;
 
@@ -41,23 +42,43 @@ struct stDX11
 		Release();
 	}
 
-	bool createDevice() {
-		UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+	bool createDevice(std::stringstream* outputLog) {
+		UINT creationFlags = 0;//D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #if defined(_DEBUG)
 		// If the project is in a debug build, enable the debug layer.
 		creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
-		HRESULT result = CreateDXGIFactory1(__uuidof(IDXGIFactory2), (void**)&factory);
-		if (FAILED(result)) {
-			logError << "(sDX11) Failed to create DXGIFactory1." << std::endl;
-			return false;
-		}
 
-		result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, creationFlags, FeatureLevels, NumFeatureLevels, D3D11_SDK_VERSION, &dev, &FeatureLevel, &devcon);
+		(*outputLog) << "(sDX11) Start CreateDXGIFactory1" << std::endl;
+		forceFlush();
+		HRESULT result = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)&factory);
 		if (FAILED(result)) {
-			logError << "(sDX11) Failed to create D3D11 device." << std::endl;;
+			(*outputLog) << "(sDX11) Failed to create DXGIFactory1. :" << std::hex << result << std::endl;
+			forceFlush();
 			return false;
 		}
+		(*outputLog) << "(sDX11) Finish CreateDXGIFactory1" << std::endl;
+		forceFlush();
+
+		(*outputLog) << "(sDX11) Start D3D11CreateDevice" << std::endl;
+		forceFlush();
+		result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, NULL, NULL, NULL, D3D11_SDK_VERSION, NULL, &FeatureLevel, NULL);
+		if (FAILED(result)) {
+			(*outputLog) << "(sDX11) Failed to return D3D11 FeatureLevel. :" << std::hex << result << std::endl;
+			forceFlush();
+			return false;
+		}
+		(*outputLog) << "(sDX11) D3D11 FeatureLevel 0x" << std::hex << FeatureLevel << std::endl;
+		forceFlush();
+
+		result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, creationFlags, FeatureLevels, NumFeatureLevels, D3D11_SDK_VERSION, &dev, NULL, &devcon);
+		if (FAILED(result)) {
+			(*outputLog) << "(sDX11) Failed to create D3D11 device. :" << std::hex << result << std::endl;
+			forceFlush();
+			return false;
+		}
+		(*outputLog) << "(sDX11) Finish D3D11CreateDevice" << std::endl;
+		forceFlush();
 
 		return true;
 	}
@@ -66,7 +87,7 @@ struct stDX11
 #define OCCLUSION_STATUS_MSG WM_USER
 		HRESULT result = S_OK;
 
-		if (factory) { factory->Release();			factory = nullptr; }
+		if (factory) { factory->Release(); factory = nullptr; }
 
 		// Get DXGI device
 		IDXGIDevice* DxgiDevice = nullptr;
@@ -97,11 +118,11 @@ struct stDX11
 
 		if (hWnd != NULL) {
 			// Register for occlusion status windows message
-			result = factory->RegisterOcclusionStatusWindow(hWnd, OCCLUSION_STATUS_MSG, &occlusionCookie);
-			if (FAILED(result)) {
-				logError << "(sDX11) Failed to register for occlusion message." << std::endl;
-				return false;
-			}
+			//result = factory->RegisterOcclusionStatusWindow(hWnd, OCCLUSION_STATUS_MSG, &occlusionCookie);
+			//if (FAILED(result)) {
+			//	logError << "(sDX11) Failed to register for occlusion message." << std::endl;
+			//	return false;
+			//}
 		}
 
 		if (disableAltEnter) {
@@ -135,7 +156,7 @@ struct stDX11
 		ZeroMemory(&scfd, sizeof(DXGI_SWAP_CHAIN_FULLSCREEN_DESC));
 		scfd.Windowed = true;
 
-		result = factory->CreateSwapChainForHwnd(dev, hWnd, &scd, &scfd, nullptr, &swapchain);
+		//result = factory->CreateSwapChainForHwnd(dev, hWnd, &scd, &scfd, nullptr, &swapchain);
 
 		if (FAILED(result)) {
 			logError << "(sDX11) Failed to create swapchain" << std::endl;

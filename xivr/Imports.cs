@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using xivr.Structures;
 
 namespace xivr
 {
@@ -22,6 +23,22 @@ namespace xivr
         [DllImport("user32.dll")]
         public static extern bool IsWindowVisible(IntPtr hWnd);
 
+        [DllImport("user32.dll")]
+        public static extern bool GetCursorPos(out Point lpPoint);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetCursorPos(Point lpPoint);
+
+        [DllImport("user32.dll")]
+        public static extern bool ScreenToClient(IntPtr hwnd, out Point lpPoint);
+
+        [DllImport("user32.dll")]
+        public static extern bool ClientToScreen(IntPtr hwnd, out Point lpPoint);
+
+        [DllImport("user32.dll")]
+        public static extern bool GetClientRect(IntPtr hwnd, out Rectangle lpRect);
+
+
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UpdateConfiguration(Configuration.cfgData config);
@@ -33,7 +50,7 @@ namespace xivr
         public static extern void UnsetDX11();
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern Structures.Texture* GetUIRenderTexture(int curEye);
+        public static extern Structures.Texture* GetUIRenderTexture(int eye);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void Recenter();
@@ -54,10 +71,10 @@ namespace xivr
         public static extern void RenderVR();
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RenderUI(bool enableVR, bool enableFloatingHUD);
+        public static extern void RenderUI(bool enableVR, bool enableFloatingHUD, Matrix4x4 curViewMatrixWithoutHMD, Point virtualMouse, bool dalamudMode);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RenderFloatingScreen();
+        public static extern void RenderFloatingScreen(Point virtualMouse, bool dalamudMode);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void SetTexture();
@@ -75,6 +92,12 @@ namespace xivr
         public static extern void UpdateController(UpdateControllerInput controllerCallback);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void HapticFeedback(ActionButtonLayout side, float time, float freq, float amp);
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void SetLogFunction(InternalLogging internalLogging);
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void SetRayCoordinate(float* posFrom, float* posTo);
     }
 }

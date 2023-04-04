@@ -2,7 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-struct Configuration
+struct stConfiguration
 {
     bool isEnabled;
     bool isAutoEnabled;
@@ -28,8 +28,18 @@ struct Configuration
     float ipdOffset;
     bool vLog;
     bool hmdloc;
+    bool vertloc;
     int targetCursorSize;
-    bool fpmShowBody;
-    bool fpmShowWeapon;
     float offsetAmountZ;
+    bool uiDepth;
+    bool hmdPointing;
+    bool mode2d;
+    bool asymmetricProjection;
+    bool immersiveMovement;
+    bool immersiveFull;
+    float offsetAmountYFPS;
+    float offsetAmountZFPS;
+    int languageType;
+    bool ultrawideshadows;
+    bool showWeaponInHand;
 };

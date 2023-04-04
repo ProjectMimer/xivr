@@ -1,5 +1,6 @@
 #pragma once
 #define WIN32_LEAN_AND_MEAN
+#define _USE_MATH_DEFINES
 // Windows Header Files
 #include <windows.h>
 #include <d3d11_4.h>
@@ -9,7 +10,6 @@
 #include <iostream>
 
 #include "stCommon.h"
-#include "clsController.h"
 #include "Configuration.h"
 
 class simpleVR
@@ -31,16 +31,16 @@ class simpleVR
 	uMatrix genericMatrix[3];
 	int gTrackCount;
 	float currentIPD;
-	ControllerList controllerID;
-	clsController controller;
-	Configuration* cfg;
+	stConfiguration* cfg;
 	std::stringstream logError;
+	vr::HmdVector2_t depthRange;
+	vr::VRTextureBounds_t textureBounds[2];
 
 private:
 	void InitalizeVR();
 
 public:
-	simpleVR(Configuration* config);
+	simpleVR(stConfiguration* config);
 	~simpleVR();
 	
 	bool StartVR();
@@ -48,10 +48,12 @@ public:
 	bool isEnabled();
 	void Recenter();
 	POINT GetBufferSize();
+	void SetActionPose(vr::HmdMatrix34_t matPose, poseType pose);
 	void SetFramePose();
 	uMatrix GetFramePose(poseType pose_type, int eye);
-	void Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* rightEye);
+	void Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D11Texture2D* rightEye, ID3D11Texture2D* rightDepth);
 	void WaitGetPoses();
 	void MakeIPDOffset();
+	bool HasErrors();
 	std::string GetErrors();
 };

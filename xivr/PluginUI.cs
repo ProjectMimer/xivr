@@ -1,7 +1,7 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 using Dalamud.Interface;
 using ImGuiNET;
+using xivr.Structures;
 
 namespace xivr
 {
@@ -9,84 +9,68 @@ namespace xivr
     {
         public static bool isVisible = false;
 
-        public static void Draw()
+        public static void Draw(uiOptionStrings lngOptions)
         {
             if (!isVisible)
                 return;
 
-            ImGui.SetNextWindowSize(new Vector2(320, 800) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
-            ImGui.SetNextWindowSizeConstraints(new Vector2(320, 800) * ImGuiHelpers.GlobalScale, new Vector2(9999));
+            ImGui.SetNextWindowSize(new Vector2(370, 800) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowSizeConstraints(new Vector2(370, 800) * ImGuiHelpers.GlobalScale, new Vector2(9999));
             //if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             {
-                ImGui.BeginChild("VR", new Vector2(300, 150) * ImGuiHelpers.GlobalScale, true);
+                ImGui.BeginChild("VR", new Vector2(350, 200) * ImGuiHelpers.GlobalScale, true);
 
-                if (ImGui.Checkbox("Enable", ref xivr.cfg.data.isEnabled))
-                {
-                    xivr.cfg.Save();
-                }
+                if (ImGui.Checkbox(lngOptions.isEnabled_Line1, ref xivr.cfg.data.isEnabled))
+                    xivr.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox("Auto Enable if steamvr is active", ref xivr.cfg.data.isAutoEnabled))
-                {
-                    xivr.cfg.Save();
-                }
+                if (ImGui.Checkbox(lngOptions.isAutoEnabled_Line1, ref xivr.cfg.data.isAutoEnabled))
+                    xivr.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox("Auto Resize when activated", ref xivr.cfg.data.autoResize))
-                {
-                    xivr.cfg.Save();
-                }
-                if (ImGui.Button("Recenter"))
+                if (ImGui.Checkbox(lngOptions.mode2d_Line1, ref xivr.cfg.data.mode2d))
+                    xivr.Plugin.doUpdate = true;
+
+                if (ImGui.Checkbox(lngOptions.autoResize_Line1, ref xivr.cfg.data.autoResize))
+                    xivr.Plugin.doUpdate = true;
+
+                if (ImGui.Button(lngOptions.runRecenter_Line1))
                     xivr.cfg.data.runRecenter = true;
 
-                if (ImGui.Checkbox("Verbose Logs", ref xivr.cfg.data.vLog))
-                {
-                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
-                }
-
+                if (ImGui.Checkbox(lngOptions.vLog_Line1, ref xivr.cfg.data.vLog))
+                    xivr.Plugin.doUpdate = true;
 
                 ImGui.EndChild();
 
-                ImGui.BeginChild("Misc", new Vector2(300, 150) * ImGuiHelpers.GlobalScale, true);
+                ImGui.BeginChild("Misc", new Vector2(350, 300) * ImGuiHelpers.GlobalScale, true);
 
-                if (ImGui.Checkbox("Enable motion controllers", ref xivr.cfg.data.motioncontrol))
+                if (ImGui.Checkbox(lngOptions.motioncontrol_Line1, ref xivr.cfg.data.motioncontrol))
                 {
-                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
+                    xivr.cfg.data.hmdPointing = !xivr.cfg.data.motioncontrol;
+                    xivr.Plugin.doUpdate = true;
                 }
 
-                if (ImGui.Checkbox("Enable first person controller locomotion", ref xivr.cfg.data.conloc))
-                {
-                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
-                }
+                if (ImGui.Checkbox(lngOptions.conloc_Line1, ref xivr.cfg.data.conloc))
+                    xivr.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox("Enable first person headset locomotion", ref xivr.cfg.data.hmdloc))
-                {
-                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
-                }
+                if (ImGui.Checkbox(lngOptions.hmdloc_Line1, ref xivr.cfg.data.hmdloc))
+                    xivr.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox("First person locomotion allow vertical movement", ref xivr.cfg.data.vertloc))
-                {
-                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
-                }
+                if (ImGui.Checkbox(lngOptions.vertloc_Line1, ref xivr.cfg.data.vertloc))
+                    xivr.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox("First person mode enable body", ref xivr.cfg.data.fpmShowBody))
-                {
-                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
-                }
+                if (ImGui.Checkbox(lngOptions.showWeaponInHand_Line1, ref xivr.cfg.data.showWeaponInHand))
+                    xivr.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox("Force floating screen", ref xivr.cfg.data.forceFloatingScreen))
-                {
-                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
-                }
+                if (ImGui.Checkbox(lngOptions.forceFloatingScreen_Line1, ref xivr.cfg.data.forceFloatingScreen))
+                    xivr.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox("Force floating screen in Cutscene", ref xivr.cfg.data.forceFloatingInCutscene))
-                {
-                    xivr.cfg.Save(); xivr.Plugin.doUpdate = true;
-                }
+                if (ImGui.Checkbox(lngOptions.forceFloatingInCutscene_Line1, ref xivr.cfg.data.forceFloatingInCutscene))
+                    xivr.Plugin.doUpdate = true;
+
                 ImGui.EndChild();
 
-                DrawLocks();
-                DrawUISetings();
-
+                DrawLocks(lngOptions);
+                DrawUISetings(lngOptions);
 
                 if (xivr.Plugin.doUpdate == true)
                     xivr.cfg.Save();
@@ -95,104 +79,88 @@ namespace xivr
             }
         }
 
-
-        public static void DrawLocks()
+        public static void DrawLocks(uiOptionStrings lngOptions)
         {
-            bool lockHorizon = xivr.cfg.data.horizonLock;
-            bool snapX = xivr.cfg.data.horizontalLock;
-            bool snapY = xivr.cfg.data.verticalLock;
-            float snapXamount = xivr.cfg.data.snapRotateAmountX;
-            float snapYamount = xivr.cfg.data.snapRotateAmountY;
+            ImGui.BeginChild("Snap Turning", new Vector2(350, 200) * ImGuiHelpers.GlobalScale, true);
 
+            if(ImGui.Checkbox(lngOptions.horizonLock_Line1, ref xivr.cfg.data.horizonLock))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.BeginChild("Snap Turning", new Vector2(300, 200) * ImGuiHelpers.GlobalScale, true);
+            if (ImGui.Checkbox(lngOptions.snapRotateAmountX_Line1, ref xivr.cfg.data.horizontalLock))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.Checkbox("Keep headset level with horizon", ref lockHorizon);
+            ImGui.Text(lngOptions.snapRotateAmountX_Line2); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawLocks:hsa", ref xivr.cfg.data.snapRotateAmountX, 0, 90, "%.0f"))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.Text("Horizontal Snap:");
-            ImGui.Text("On/Off:"); ImGui.SameLine(); ImGui.Checkbox("##DrawLocks:hs", ref snapX);
-            ImGui.Text("Amount:"); ImGui.SameLine(); ImGui.SliderFloat("##DrawLocks:hsa", ref snapXamount, 0, 90, "%.0f");
+            if (ImGui.Checkbox(lngOptions.snapRotateAmountY_Line1, ref xivr.cfg.data.verticalLock))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.Text("Vertical Snap:");
-            ImGui.Text("On/Off:"); ImGui.SameLine(); ImGui.Checkbox("##DrawLocks:vs", ref snapY);
-            ImGui.Text("Amount:"); ImGui.SameLine(); ImGui.SliderFloat("##DrawLocks:vsa", ref snapYamount, 0, 90, "%.0f");
-
-            if (xivr.cfg.data.horizonLock != lockHorizon)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.horizonLock = lockHorizon;
-
-            if (xivr.cfg.data.horizontalLock != snapX)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.horizontalLock = snapX;
-
-            if (xivr.cfg.data.verticalLock != snapY)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.verticalLock = snapY;
-
-            if (xivr.cfg.data.snapRotateAmountX != snapXamount)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.snapRotateAmountX = snapXamount;
-
-            if (xivr.cfg.data.snapRotateAmountY != snapYamount)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.snapRotateAmountY = snapYamount;
+            ImGui.Text(lngOptions.snapRotateAmountY_Line2); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawLocks:vsa", ref xivr.cfg.data.snapRotateAmountY, 0, 90, "%.0f"))
+                xivr.Plugin.doUpdate = true;
 
             ImGui.EndChild();
         }
 
-        public static void DrawUISetings()
+
+
+        public static void DrawUISetings(uiOptionStrings lngOptions)
         {
-            float uiOffsetZ = xivr.cfg.data.uiOffsetZ;
-            float uiOffsetScale = xivr.cfg.data.uiOffsetScale;
-            float ipdOffset = xivr.cfg.data.ipdOffset;
-            bool swapEyes = xivr.cfg.data.swapEyes;
-            bool swapEyesUI = xivr.cfg.data.swapEyesUI;
-            float offsetAmountX = xivr.cfg.data.offsetAmountX;
-            float offsetAmountY = xivr.cfg.data.offsetAmountY;
-            float offsetAmountZ = xivr.cfg.data.offsetAmountZ;
-            int targetCursorSize = xivr.cfg.data.targetCursorSize;
+            ImGui.BeginChild("UI", new Vector2(350, 400) * ImGuiHelpers.GlobalScale, true);
 
+            ImGui.Text(lngOptions.uiOffsetZ_Line1); ImGui.SameLine(); 
+            if(ImGui.SliderFloat("##DrawUISetings:uizoff", ref xivr.cfg.data.uiOffsetZ, 0, 100, "%.0f"))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.BeginChild("UI", new Vector2(300, 250) * ImGuiHelpers.GlobalScale, true);
+            ImGui.Text(lngOptions.uiOffsetScale_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:uizscale", ref xivr.cfg.data.uiOffsetScale, 1, 5, "%.00f"))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.Text("UI Distance"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:uizoff", ref uiOffsetZ);
-            ImGui.Text("UI Size"); ImGui.SameLine(); ImGui.InputFloat("##DrawUISetings:uizscale", ref uiOffsetScale);
-            ImGui.Text("IPD Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:ipdoff", ref ipdOffset, -10, 10, "%f");
+            if (ImGui.Checkbox(lngOptions.uiDepth_Line1, ref xivr.cfg.data.uiDepth))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.Text("Swap Eyes"); ImGui.SameLine(); ImGui.Checkbox("##DrawUISetings:swapeyes", ref swapEyes);
-            ImGui.Text("Swap Eyes UI"); ImGui.SameLine(); ImGui.Checkbox("##DrawUISetings:swapeyesui", ref swapEyesUI);
+            ImGui.Text(lngOptions.ipdOffset_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:ipdoff", ref xivr.cfg.data.ipdOffset, -10, 10, "%f"))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.Text("X Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:xoff", ref offsetAmountX, -150, 150, "%.0f");
-            ImGui.Text("Y Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:yoff", ref offsetAmountY, -150, 150, "%.0f");
-            ImGui.Text("Z Offset"); ImGui.SameLine(); ImGui.SliderFloat("##DrawUISetings:zoff", ref offsetAmountZ, -150, 150, "%.0f");
+            if (ImGui.Checkbox(lngOptions.swapEyes_Line1, ref xivr.cfg.data.swapEyes))
+                xivr.Plugin.doUpdate = true;
 
-            ImGui.Text("Target Cursor Size"); ImGui.SameLine(); ImGui.SliderInt("##DrawUISetings:targetcur", ref targetCursorSize, 50, 255);
+            if (ImGui.Checkbox(lngOptions.swapEyesUI_Line1, ref xivr.cfg.data.swapEyesUI))
+                xivr.Plugin.doUpdate = true;
 
-            if (xivr.cfg.data.uiOffsetZ != uiOffsetZ)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.uiOffsetZ = uiOffsetZ;
+            ImGui.Text(lngOptions.offsetAmountX_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:xoff", ref xivr.cfg.data.offsetAmountX, -150, 150, "%.0f"))
+                xivr.Plugin.doUpdate = true;
 
-            if (xivr.cfg.data.uiOffsetScale != uiOffsetScale)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.uiOffsetScale = uiOffsetScale;
+            ImGui.Text(lngOptions.offsetAmountY_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:yoff", ref xivr.cfg.data.offsetAmountY, -150, 150, "%.0f"))
+                xivr.Plugin.doUpdate = true;
 
-            if (xivr.cfg.data.ipdOffset != ipdOffset)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.ipdOffset = ipdOffset;
+            ImGui.Text(lngOptions.offsetAmountZ_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:zoff", ref xivr.cfg.data.offsetAmountZ, -150, 150, "%.0f"))
+                xivr.Plugin.doUpdate = true;
 
-            if (xivr.cfg.data.swapEyes != swapEyes)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.swapEyes = swapEyes;
+            ImGui.Text(lngOptions.offsetAmountYFPS_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:fpsyoff", ref xivr.cfg.data.offsetAmountYFPS, -150, 150, "%.0f"))
+                xivr.Plugin.doUpdate = true;
 
-            if (xivr.cfg.data.swapEyesUI != swapEyesUI)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.swapEyesUI = swapEyesUI;
+            ImGui.Text(lngOptions.offsetAmountZFPS_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:fpszoff", ref xivr.cfg.data.offsetAmountZFPS, -150, 150, "%.0f"))
+                xivr.Plugin.doUpdate = true;
 
-            if (xivr.cfg.data.offsetAmountX != offsetAmountX)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.offsetAmountX = offsetAmountX;
+            ImGui.Text(lngOptions.targetCursorSize_Line1); ImGui.SameLine();
+            if (ImGui.SliderInt("##DrawUISetings:targetcur", ref xivr.cfg.data.targetCursorSize, 50, 255))
+                xivr.Plugin.doUpdate = true;
 
-            if (xivr.cfg.data.offsetAmountY != offsetAmountY)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.offsetAmountY = offsetAmountY;
+            if (ImGui.Checkbox(lngOptions.ultrawideshadows_Line1, ref xivr.cfg.data.ultrawideshadows))
+                xivr.Plugin.doUpdate = true;
 
-            if (xivr.cfg.data.offsetAmountZ != offsetAmountZ)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.offsetAmountZ = offsetAmountZ;
-
-            if (xivr.cfg.data.targetCursorSize != targetCursorSize)
-                xivr.Plugin.doUpdate = true; xivr.cfg.data.targetCursorSize = targetCursorSize;
+            if (ImGui.Checkbox(lngOptions.asymmetricProjection_Line1, ref xivr.cfg.data.asymmetricProjection))
+                xivr.Plugin.doUpdate = true;
 
             ImGui.EndChild();
-
         }
-
     }
 }

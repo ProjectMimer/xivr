@@ -7,19 +7,33 @@ namespace xivr.Structures
     {
         public bool active;
         public float value;
-
+        public bool ChangedStatus;
+        public bool ChangedValue;
         public void Set()
         {
             active = false;
             value = 0;
+            ChangedStatus = false;
+            ChangedValue = false;
         }
 
         public void Set(bool a, float v)
         {
-            active = a;
-            value = v;
+            ChangedStatus = false;
+            if (active != a)
+            {
+                active = a;
+                ChangedStatus = true;
+            }
+            ChangedValue = false;
+            if (value != v)
+            {
+                value = v; 
+                ChangedValue = true;
+            }
         }
     }
+
     public struct XBoxStatus
     {
         public XBoxButtonStatus dpad_up;

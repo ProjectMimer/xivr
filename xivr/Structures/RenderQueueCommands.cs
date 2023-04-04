@@ -41,7 +41,5 @@ namespace xivr.Structures
             unkn9 = 0;
         }
     };
-
-
-
 }
+

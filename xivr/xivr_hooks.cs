@@ -3,29 +3,27 @@ using System.IO;
 using System.Drawing;
 using System.Numerics;
 using System.Diagnostics;
-using System.Windows;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Dalamud;
-using Dalamud.Game;
 using Dalamud.Utility.Signatures;
-using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Hooking;
 using Dalamud.Logging;
-using Dalamud.Game.ClientState.Objects.Enums;
 using xivr.Structures;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
-using FFXIVClientStructs.FFXIV.Client.System;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using static FFXIVClientStructs.FFXIV.Client.UI.AddonNamePlate;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.Havok;
+using FFXIVClientStructs.FFXIV.Client.Graphics;
+using System.Threading.Tasks;
+using FFXIVClientStructs.Interop.Attributes;
 
 namespace xivr
 {
@@ -37,6 +35,7 @@ namespace xivr
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     public delegate void InternalLogging(String value);
+
 
 
 
@@ -56,28 +55,6 @@ namespace xivr
         public ActionButtonLayout inputId { get; private set; }
         public HandleInputAttribute(ActionButtonLayout buttonId) => inputId = buttonId;
     }
-
-
-    [StructLayout(LayoutKind.Explicit)]
-    public unsafe struct ActorModel
-    {
-        [FieldOffset(0x50)] public hkQsTransformf basePosition;
-        [FieldOffset(0xA0)] public Skeleton* skeleton;
-    }
-
-    static class ExtendedData
-    {
-        public unsafe static Character* GetCharacter(this PlayerCharacter playerCharacter)
-        {
-            return (Character*)playerCharacter.Address;
-        }
-
-        public unsafe static ActorModel* GetActorModel(this PlayerCharacter playerCharacter)
-        {
-            return *(ActorModel**)(playerCharacter.Address + 0x100);
-        }
-    }
-
 
 
     internal unsafe class xivr_hooks
@@ -107,23 +84,37 @@ namespace xivr
         private bool enableVR = true;
         private bool enableFloatingHUD = true;
         private bool forceFloatingScreen = false;
+        private bool inCutscene = false;
+        private bool isMounted = false;
+        private bool housingMode = false;
+        private bool dalamudMode = false;
         private byte targetAddonAlpha = 0;
-        private CameraModes gameMode = 0;
+        private RenderModes curRenderMode = RenderModes.None;
         private int curEye = 0;
         private int[] nextEye = { 1, 0 };
         private int[] swapEyes = { 1, 0 };
-        private float RadianConversion = MathF.PI / 180.0f;
+        private float Deg2Rad = MathF.PI / 180.0f;
+        private float Rad2Deg = 180.0f / MathF.PI;
         private float cameraZoom = 0.0f;
         private float leftBumperValue = 0.0f;
         private float firstPersonCameraHeight = 0.0f;
+        private float BridgeBoneHeight = 0.0f;
+        private ChangedTypeBool mouseoverUI = new ChangedTypeBool();
+        private ChangedTypeBool mouseoverTarget = new ChangedTypeBool();
         private Vector2 rotateAmount = new Vector2(0.0f, 0.0f);
         private Vector3 onwardAngle = new Vector3(0.0f, 0.0f, 0.0f);
         private Vector3 onwardDiff = new Vector3(0.0f, 0.0f, 0.0f);
         private Point virtualMouse = new Point(0, 0);
+        private Point actualMouse = new Point(0, 0);
         private Dictionary<ActionButtonLayout, bool> inputState = new Dictionary<ActionButtonLayout, bool>();
+        private Dictionary<ActionButtonLayout, ChangedType<bool>> inputStatus = new Dictionary<ActionButtonLayout, ChangedType<bool>>();
         private Dictionary<ConfigOption, int> SavedSettings = new Dictionary<ConfigOption, int>();
         private Stack<bool> overrideFromParent = new Stack<bool>();
         private bool frfCalculateViewMatrix = false; // frf first run this frame
+        private int ScreenMode = 0;
+        private UInt64 DisableSetCursorPosOrig = 0;
+        private UInt64 DisableSetCursorPosOverride = 0x05C6909090909090;
+        private UInt64 DisableSetCursorPosAddr = 0;
 
         private const int FLAG_INVIS = (1 << 1) | (1 << 11);
         private const byte NamePlateCount = 50;
@@ -136,8 +127,10 @@ namespace xivr
         private UpdateControllerInput controllerCallback;
         private InternalLogging internalLogging;
 
-        private Matrix4x4 curViewMatrix = Matrix4x4.Identity;
+        private Matrix4x4 curViewMatrixWithoutHMD = Matrix4x4.Identity;
+        private Matrix4x4 curViewMatrixWithoutHMDI = Matrix4x4.Identity;
         private Matrix4x4 hmdMatrix = Matrix4x4.Identity;
+        private Matrix4x4 hmdMatrixI = Matrix4x4.Identity;
         private Matrix4x4 lhcMatrix = Matrix4x4.Identity;
         private Matrix4x4 lhcMatrixI = Matrix4x4.Identity;
         private Matrix4x4 rhcMatrix = Matrix4x4.Identity;
@@ -152,10 +145,18 @@ namespace xivr
                     Matrix4x4.Identity
                 };
 
+        private Matrix4x4 convertXZ = new Matrix4x4(0, 0, -1, 0,
+                                                         0, -1, 0, 0,
+                                                        -1, 0, 0, 0,
+                                                         0, 0, 0, 1);
+
         private SceneCameraManager* camInst = null;
         private ControlSystemCameraManager* csCameraManager = null;
+        private TargetSystem* targetSystem = TargetSystem.Instance();
+        private Structures.RenderTargetManager* renderTargetManager = null;
+        private FFXIVClientStructs.FFXIV.Client.System.Framework.Framework* frameworkInstance = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
         private AtkTextNode* vrTargetCursor = null;
-        private NamePlateObject* currentNPTarget = null;
+        private CharSelectionCharList* charList = null;
 
         private static class Signatures
         {
@@ -164,7 +165,16 @@ namespace xivr
             internal const string g_SceneCameraManagerInstance = "48 8B 05 ?? ?? ?? ?? 83 78 50 00 75 22";
             internal const string g_RenderTargetManagerInstance = "48 8B 05 ?? ?? ?? ?? 49 63 C8";
             internal const string g_ControlSystemCameraManager = "48 8D 0D ?? ?? ?? ?? F3 0F 10 4B ??";
+            internal const string g_SelectScreenCharacterList = "4C 8D 35 ?? ?? ?? ?? BF C8 00 00 00";
+            internal const string g_DisableSetCursorPosAddr = "FF ?? ?? ?? ?? 00 C6 05 ?? ?? ?? ?? 00 0F B6 43 38";
 
+            internal const string GetCutsceneCameraOffset = "E8 ?? ?? ?? ?? 48 8B 70 48 48 85 F6";
+            internal const string GameObjectGetPosition = "83 79 7C 00 75 09 F6 81 ?? ?? ?? ?? ?? 74 2A";
+            internal const string GetTargetFromRay = "E8 ?? ?? ?? ?? 84 C0 74 ?? 48 8B F3";
+            internal const string GetMouseOverTarget = "E8 ?? ?? ?? ?? 48 8B D8 48 85 DB 74 ?? 48 8B CB";
+            internal const string ScreenPointToRay = "E8 ?? ?? ?? ?? 4C 8B E0 48 8B EB";
+            internal const string ScreenPointToRay1 = "E8 ?? ?? ?? ?? 80 BF 74 01 00 00 00";
+            internal const string MousePointScreenToClient = "E8 ?? ?? ?? ?? 0f B7 44 24 50 66 89 83 98 09 00 00";
 
 
             internal const string DisableLeftClick = "E8 ?? ?? ?? ?? BA ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 16";
@@ -175,26 +185,27 @@ namespace xivr
             internal const string PushbackUI = "E8 ?? ?? ?? ?? EB 05 E8 ?? ?? ?? ?? 48 8B 5C 24 78";
             internal const string OnRequestedUpdate = "48 8B C4 41 56 48 81 EC ?? ?? ?? ?? 48 89 58 F0";
             internal const string DXGIPresent = "E8 ?? ?? ?? ?? C6 47 79 00 48 8B 8F";
+            internal const string RenderThreadSetRenderTarget = "E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? F3 41 0F 10 5A 18";
             internal const string CamManagerSetMatrix = "4C 8B DC 49 89 5B 10 49 89 73 18 49 89 7B 20 55 49 8D AB";
             internal const string CSUpdateConstBuf = "4C 8B DC 49 89 5B 20 55 57 41 56 49 8D AB";
             internal const string SetUIProj = "E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 48 8D 94 24";
             internal const string CalculateViewMatrix = "E8 ?? ?? ?? ?? 8B 83 EC 00 00 00 D1 E8 A8 01 74 1B";
+            internal const string CutsceneViewMatrix = "E8 ?? ?? ?? ?? 80 BB 98 00 00 00 01 75 ??";
             internal const string UpdateRotation = "E8 ?? ?? ?? ?? 0F B6 93 20 02 00 00 48 8B CB";
             internal const string MakeProjectionMatrix2 = "E8 ?? ?? ?? ?? 4C 8B 2D ?? ?? ?? ?? 41 0F 28 C2";
             internal const string CSMakeProjectionMatrix = "E8 ?? ?? ?? ?? 0F 28 46 10 4C 8D 7E 10";
-            internal const string RenderThreadSetRenderTarget = "E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? F3 41 0F 10 5A 18";
             internal const string NamePlateDraw = "0F B7 81 ?? ?? ?? ?? 4C 8B C1 66 C1 E0 06";
             internal const string RunBoneMath = "E8 ?? ?? ?? ?? 44 0F 28 58 10";
-            internal const string LoadCharacter = "48 89 5C 24 10 48 89 6C 24 18 56 57 41 57 48 83 EC 30 48 8B F9 4D 8B F9 8B CA 49 8B D8 8B EA";
+            internal const string CalculateHeadAnimation = "48 89 6C 24 20 41 56 48 83 EC 30 48 8B EA";
+            internal const string LoadCharacter = "E8 ?? ?? ?? ?? 4D 85 F6 74 ?? 49 8B CE E8 ?? ?? ?? ?? 84 C0 75 ?? 4D 8B 46 20";
             internal const string ChangeEquipment = "E8 ?? ?? ?? ?? 41 B5 01 FF C6";
             internal const string ChangeWeapon = "E8 ?? ?? ?? ?? 80 7F 25 00";
             internal const string EquipGearsetInternal = "E8 ?? ?? ?? ?? C7 87 08 01 00 00 00 00 00 00 C6 46 08 01 E9 ?? ?? ?? ?? 41 8B 4E 04";
             internal const string GetAnalogueValue = "E8 ?? ?? ?? ?? 66 44 0F 6E C3";
             internal const string ControllerInput = "E8 ?? ?? ?? ?? 41 8B 86 3C 04 00 00";
 
-
-            
-            
+            internal const string PhysicsBoneUpdate = "E8 ?? ?? ?? ?? 48 8D 93 90 00 00 00 4C 8D 43 40";
+            internal const string RunGameTasks = "E8 ?? ?? ?? ?? 48 8B 8B B8 35 00 00";
         }
 
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[xivr] {message}");
@@ -250,172 +261,13 @@ namespace xivr
                             PluginLog.Log($"SetInputHandles Adding {key}");
                         inputList.Add(key, handle);
                         inputState.Add(key, false);
+                        inputStatus.Add(key, new ChangedType<bool>());
                     }
                 }
             }
         }
 
-        public bool SetupVRTargetCursor()
-        {
-            if(vrTargetCursor != null)
-            {
-                return true;
-            }
 
-            vrTargetCursor = (AtkTextNode*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkTextNode), 8);
-            if (vrTargetCursor == null)
-            {
-                PluginLog.Debug("Failed to allocate memory for text node");
-                return false;
-            }
-            IMemorySpace.Memset(vrTargetCursor, 0, (ulong)sizeof(AtkTextNode));
-            vrTargetCursor->Ctor();
-
-            vrTargetCursor->AtkResNode.Type = NodeType.Text;
-            vrTargetCursor->AtkResNode.Flags = (short)(NodeFlags.UseDepthBasedPriority);
-            vrTargetCursor->AtkResNode.DrawFlags = 12;
-
-            vrTargetCursor->LineSpacing = 12;
-            vrTargetCursor->AlignmentFontType = 4;
-            vrTargetCursor->FontSize = (byte)xivr.cfg.data.targetCursorSize;
-            vrTargetCursor->TextFlags = (byte)(TextFlags.AutoAdjustNodeSize | TextFlags.Edge);
-            vrTargetCursor->TextFlags2 = 0;
-
-            vrTargetCursor->SetText("↓");
-
-            vrTargetCursor->AtkResNode.ToggleVisibility(true);
-
-            vrTargetCursor->AtkResNode.SetPositionShort(90, -23);
-            ushort outWidth = 0;
-            ushort outHeight = 0;
-            vrTargetCursor->GetTextDrawSize(&outWidth, &outHeight);
-            vrTargetCursor->AtkResNode.SetWidth((ushort)(outWidth));
-            vrTargetCursor->AtkResNode.SetHeight((ushort)(outHeight));
-
-            // white fill
-            vrTargetCursor->TextColor.R = 255;
-            vrTargetCursor->TextColor.G = 255;
-            vrTargetCursor->TextColor.B = 255;
-            vrTargetCursor->TextColor.A = 255;
-
-            // yellow/golden glow
-            vrTargetCursor->EdgeColor.R = 235;
-            vrTargetCursor->EdgeColor.G = 185;
-            vrTargetCursor->EdgeColor.B = 7;
-            vrTargetCursor->EdgeColor.A = 255;
-
-            return true;
-        }
-
-        public void FreeVRTargetCursor()
-        {
-            if(vrTargetCursor != null)
-            {
-                if (currentNPTarget != null)
-                    RemoveVRCursor(currentNPTarget);
-
-                currentNPTarget = null;
-
-                vrTargetCursor->AtkResNode.Destroy(true);
-                vrTargetCursor = null;
-            }
-        }
-
-        public void AddVRCursor(NamePlateObject* nameplate)
-        {
-            if(nameplate != null && vrTargetCursor != null)
-            {
-                var npComponent = nameplate->RootNode->Component;
-
-                var lastChild = npComponent->UldManager.RootNode;
-                while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;
-
-                lastChild->PrevSiblingNode = (AtkResNode*)vrTargetCursor;
-                vrTargetCursor->AtkResNode.NextSiblingNode = lastChild;
-                vrTargetCursor->AtkResNode.ParentNode = (AtkResNode*)nameplate->RootNode;
-
-                npComponent->UldManager.UpdateDrawNodeList();
-            }
-        }
-
-        public void RemoveVRCursor(NamePlateObject* nameplate)
-        {
-            if (nameplate != null && vrTargetCursor != null)
-            {
-                var npComponent = nameplate->RootNode->Component;
-
-                var lastChild = npComponent->UldManager.RootNode;
-                while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;
-
-                if(lastChild == vrTargetCursor)
-                {
-                    lastChild->NextSiblingNode->PrevSiblingNode = null;
-                   
-                    vrTargetCursor->AtkResNode.NextSiblingNode = null;
-                    vrTargetCursor->AtkResNode.ParentNode = null;
-
-                    npComponent->UldManager.UpdateDrawNodeList();
-                }
-                else
-                {
-                    PluginLog.Error("RemoveVRCursor: lastChild != vrTargetCursor");
-                }
-            }
-        }
-
-        public void UpdateVRCursorSize()
-        {
-            if (vrTargetCursor == null) return;
-
-            vrTargetCursor->FontSize = (byte)xivr.cfg.data.targetCursorSize;
-            ushort outWidth = 0;
-            ushort outHeight = 0;
-            vrTargetCursor->GetTextDrawSize(&outWidth, &outHeight);
-            vrTargetCursor->AtkResNode.SetWidth(outWidth);
-            vrTargetCursor->AtkResNode.SetHeight(outHeight);
-
-            // explanation of these numbers
-            // Some setup info:
-            // 1. The ↓ character output from GetTextDrawSize is always 1:1 with the
-            //    requested font. Font size 100 results in outWidth 100 and outHeight 100.
-            // 2. The anchor point for text fields are the upper left corner of the frame.
-            // 3. The hand-tuned position of the default font size 100 is x 90, y -23.
-            // 
-            // Adding the inverted delta offset (and div by 2 for x) correctly moves the ancor
-            // from upper left to bottom center. However I noticed that as the font scales
-            // up and down, the point of the arrow drifts slightly along the x and y. This
-            // is the reason for the * 1.10 and * 1.15. This corrects for the drift and keeps
-            // the point of the arrow exactly where it should be.
-
-            const float DriftOffset_X = 1.10f;
-            const float DriftOffset_Y = 1.15f;
-
-            short xpos = (short)(90 + ((100 - outWidth) / 2 * DriftOffset_X));
-            short ypos = (short)(-23 + (100 - outWidth) * DriftOffset_Y);
-            vrTargetCursor->AtkResNode.SetPositionShort(xpos, ypos);
-        }
-
-        public void SetVRCursor(NamePlateObject* nameplate)
-        {
-            // nothing to do!
-            if (currentNPTarget == nameplate)
-                return;
-
-            if(vrTargetCursor != null)
-            {
-                if(currentNPTarget != null)
-                {
-                    RemoveVRCursor(currentNPTarget);
-                    currentNPTarget = null;
-                }
-
-                if(nameplate != null)
-                {
-                    AddVRCursor(nameplate);
-                    currentNPTarget = nameplate;
-                }
-            }
-        }
 
         public bool Initialize()
         {
@@ -431,16 +283,26 @@ namespace xivr
                 IntPtr tmpAddress = DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_SceneCameraManagerInstance);
                 camInst = (SceneCameraManager*)(*(UInt64*)tmpAddress);
 
-                tmpAddress = DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_ControlSystemCameraManager);
-                csCameraManager = (ControlSystemCameraManager*)tmpAddress;
-
+                csCameraManager = (ControlSystemCameraManager*)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_ControlSystemCameraManager);
                 globalScaleAddress = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_TextScale);
                 RenderTargetManagerAddress = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_RenderTargetManagerInstance);
                 tls_index = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_tls_index);
+                csCameraManager = (ControlSystemCameraManager*)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_ControlSystemCameraManager);
+                charList = (CharSelectionCharList*)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_SelectScreenCharacterList);
+                DisableSetCursorPosAddr = (UInt64)DalamudApi.SigScanner.ScanText(Signatures.g_DisableSetCursorPosAddr);
+                DisableSetCursorPosOrig = *(UInt64*)DisableSetCursorPosAddr;
 
+                renderTargetManager = *(Structures.RenderTargetManager**)RenderTargetManagerAddress;
+
+                curRenderMode = RenderModes.None;
                 GetThreadedDataInit();
                 SetFunctionHandles();
                 SetInputHandles();
+
+                SavedSettings[ConfigOption.MouseOpeLimit] = ConfigModule.Instance()->GetIntValue(ConfigOption.MouseOpeLimit);
+                SavedSettings[ConfigOption.ObjectBorderingType] = ConfigModule.Instance()->GetIntValue(ConfigOption.ObjectBorderingType);
+                ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
+                ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 0);
 
                 controllerCallback = (buttonId, analog, digital) =>
                 {
@@ -448,14 +310,12 @@ namespace xivr
                         inputList[buttonId](analog, digital);
                 };
 
-
                 internalLogging = (value) =>
                 {
                     PluginLog.Log($"xivr_main: {value}");
                 };
 
                 Imports.SetLogFunction(internalLogging);
-
                 initalized = true;
             }
             if (xivr.cfg.data.vLog)
@@ -466,12 +326,48 @@ namespace xivr
 
         public bool Start()
         {
-            if(xivr.cfg.data.vLog)
+            if (xivr.cfg.data.vLog)
+            {
+                PluginLog.Log($"Settings:");
+                PluginLog.Log($"-- isEnabled = {xivr.cfg.data.isEnabled}");
+                PluginLog.Log($"-- isAutoEnabled = {xivr.cfg.data.isAutoEnabled}");
+                PluginLog.Log($"-- forceFloatingScreen = {xivr.cfg.data.forceFloatingScreen}");
+                PluginLog.Log($"-- forceFloatingInCutscene = {xivr.cfg.data.forceFloatingInCutscene}");
+                PluginLog.Log($"-- horizontalLock = {xivr.cfg.data.horizontalLock}");
+                PluginLog.Log($"-- verticalLock = {xivr.cfg.data.verticalLock}");
+                PluginLog.Log($"-- horizonLock = {xivr.cfg.data.horizonLock}");
+                PluginLog.Log($"-- runRecenter = {xivr.cfg.data.runRecenter}");
+                PluginLog.Log($"-- offsetAmountX = {xivr.cfg.data.offsetAmountX}");
+                PluginLog.Log($"-- offsetAmountY = {xivr.cfg.data.offsetAmountY}");
+                PluginLog.Log($"-- snapRotateAmountX = {xivr.cfg.data.snapRotateAmountX}");
+                PluginLog.Log($"-- snapRotateAmountY = {xivr.cfg.data.snapRotateAmountY}");
+                PluginLog.Log($"-- uiOffsetZ = {xivr.cfg.data.uiOffsetZ}");
+                PluginLog.Log($"-- uiOffsetScale = {xivr.cfg.data.uiOffsetScale}");
+                PluginLog.Log($"-- conloc = {xivr.cfg.data.conloc}");
+                PluginLog.Log($"-- swapEyes = {xivr.cfg.data.swapEyes}");
+                PluginLog.Log($"-- swapEyesUI = {xivr.cfg.data.swapEyesUI}");
+                PluginLog.Log($"-- motioncontrol = {xivr.cfg.data.motioncontrol}");
+                PluginLog.Log($"-- hmdWidth = {xivr.cfg.data.hmdWidth}");
+                PluginLog.Log($"-- hmdHeight = {xivr.cfg.data.hmdHeight}");
+                PluginLog.Log($"-- autoResize = {xivr.cfg.data.autoResize}");
+                PluginLog.Log($"-- ipdOffset = {xivr.cfg.data.ipdOffset}");
+                PluginLog.Log($"-- vLog = {xivr.cfg.data.vLog}");
+                PluginLog.Log($"-- hmdloc = {xivr.cfg.data.hmdloc}");
+                PluginLog.Log($"-- vertloc = {xivr.cfg.data.vertloc}");
+                PluginLog.Log($"-- targetCursorSize = {xivr.cfg.data.targetCursorSize}");
+                PluginLog.Log($"-- offsetAmountZ = {xivr.cfg.data.offsetAmountZ}");
+                PluginLog.Log($"-- uiDepth = {xivr.cfg.data.uiDepth}");
+                PluginLog.Log($"-- hmdPointing = {xivr.cfg.data.hmdPointing}");
+                PluginLog.Log($"-- mode2d = {xivr.cfg.data.mode2d}");
+                PluginLog.Log($"-- asymmetricProjection = {xivr.cfg.data.asymmetricProjection}");
+                PluginLog.Log($"-- immersiveMovement = {xivr.cfg.data.immersiveMovement}");
+                PluginLog.Log($"-- immersiveFull = {xivr.cfg.data.immersiveFull}");
                 PluginLog.Log($"Start A {initalized} {hooksSet}");
+            }
             if (initalized == true && hooksSet == false && VR_IsHmdPresent())
             {
                 if (xivr.cfg.data.vLog)
-                    PluginLog.Log($"SetDX Dx: {(IntPtr)Device.Instance():X} RndTrg:{*(IntPtr*)RenderTargetManagerAddress:X}");
+                    PluginLog.Log($"SetDX Dx: {(IntPtr)Device.Instance():X} | RndTrg:{*(IntPtr*)RenderTargetManagerAddress:X}");
 
                 if (!Imports.SetDX11((IntPtr)Device.Instance(), *(IntPtr*)RenderTargetManagerAddress))
                     return false;
@@ -480,10 +376,18 @@ namespace xivr
                 if (Imports.SetActiveJSON(filePath, filePath.Length) == false)
                     PluginLog.LogError($"Error loading Json file : {filePath}");
 
-                gameProjectionMatrix[0] = Matrix4x4.Transpose(Imports.GetFramePose(poseType.Projection, 0));
-                gameProjectionMatrix[1] = Matrix4x4.Transpose(Imports.GetFramePose(poseType.Projection, 1));
+
+                gameProjectionMatrix[0] = Imports.GetFramePose(poseType.Projection, 0);
+                gameProjectionMatrix[1] = Imports.GetFramePose(poseType.Projection, 1);
                 gameProjectionMatrix[0].M43 *= -1;
                 gameProjectionMatrix[1].M43 *= -1;
+                SetRenderingMode();
+
+                ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
+                ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 1);
+
+                if (DisableSetCursorPosAddr != 0)
+                    SafeMemory.Write<UInt64>((IntPtr)DisableSetCursorPosAddr, DisableSetCursorPosOverride);
 
                 //----
                 // Enable all hooks
@@ -496,8 +400,24 @@ namespace xivr
             }
             if (xivr.cfg.data.vLog)
                 PluginLog.Log($"Start B {initalized} {hooksSet}");
+
+
+
+            //----
+            // Loop though the bone enum list and convert it to a dict
+            //----
+            int j = 0;
+            boneNameToEnum.Clear();
+            foreach (string i in Enum.GetNames(typeof(BoneList)))
+            {
+                boneNameToEnum.Add(i, (BoneList)j);
+                j++;
+            }
+
             return hooksSet;
         }
+
+
 
         public void Stop()
         {
@@ -511,31 +431,60 @@ namespace xivr
                 foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
                     attrib.Value(false);
 
+                //----
+                // Disable any input that might still be on
+                //----
+                InputAnalogActionData analog = new InputAnalogActionData();
+                InputDigitalActionData digital = new InputDigitalActionData();
+                analog.bActive = false;
+                digital.bActive = false;
+                foreach (KeyValuePair<ActionButtonLayout, HandleInputDelegate> input in inputList)
+                    input.Value(analog, digital);
+
+
                 gameProjectionMatrix[0] = Matrix4x4.Identity;
                 gameProjectionMatrix[1] = Matrix4x4.Identity;
                 eyeOffsetMatrix[0] = Matrix4x4.Identity;
                 eyeOffsetMatrix[1] = Matrix4x4.Identity;
+                curRenderMode = RenderModes.None;
 
-                FreeVRTargetCursor();
-
-                //----
-                // Restores the modified clothing when disabling vr
-                //----
-                PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
-                if (player != null)
-                {
-                 }
-
-                FirstToThirdPersonView();
+                ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
+                ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 0);
+                ConfigModule.Instance()->SetOption(ConfigOption.ObjectBorderingType, SavedSettings[ConfigOption.ObjectBorderingType]);
 
 
 
                 //----
-                // Restores the target arrow alpha
+                // Restores the target arrow alpha and remove the vr cursor
                 //----
+                fixed (AtkTextNode** pvrTargetCursor = &vrTargetCursor)
+                    VRCursor.FreeVRTargetCursor(pvrTargetCursor);
+
                 AtkUnitBase* targetAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_TargetCursor", 1);
                 if (targetAddon != null)
                     targetAddon->Alpha = targetAddonAlpha;
+
+
+                FirstToThirdPersonView();
+                if (DisableSetCursorPosAddr != 0)
+                    SafeMemory.Write<UInt64>((IntPtr)DisableSetCursorPosAddr, DisableSetCursorPosOrig);
+
+                /*
+                Dictionary<string, bool> singleNames = new Dictionary<string, bool>();
+                foreach (KeyValuePair<hkaPose, Dictionary<string, int>> names in boneNames)
+                {
+                    foreach (KeyValuePair<string, int> innernames in names.Value)
+                    {
+                        if(!singleNames.ContainsKey(innernames.Key))
+                            singleNames.Add(innernames.Key, true);
+                    }
+                }
+
+                foreach (KeyValuePair<string, bool> innernames in singleNames)
+                {
+                    PluginLog.Log($"{innernames.Key}");
+                }
+                */
 
                 Imports.UnsetDX11();
 
@@ -548,303 +497,783 @@ namespace xivr
 
         private void FirstToThirdPersonView()
         {
+            Imports.Recenter();
+
             PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
             if (player != null)
             {
-                ActorModel* actorModel = player.GetActorModel();
-                if (actorModel != null)
+                GameObject* bonedObject = (GameObject*)player.Address;
+                Character* bonedCharacter = (Character*)player.Address;
+
+                if (bonedCharacter != null)
                 {
-                    Skeleton* skeleton = actorModel->skeleton;
-                    if (skeleton != null)
-                    {
-                        for (ushort p = 0; p < skeleton->PartialSkeletonCount; p++)
-                        {
-                            hkaPose* playerPose = skeleton->PartialSkeletons[p].GetHavokPose(0);
-                            if (playerPose == null) continue;
+                    //bonedCharacter->DrawData.Flags1 = HideHeadValue;
 
-                            for (int i = 0; i < playerPose->Skeleton->Bones.Length; i++)
-                            {
-                                string boneName = playerPose->Skeleton->Bones[i].Name.String;
-                                if (BoneParentOverrideList.ContainsKey(boneName))
-                                    playerPose->Skeleton->ParentIndices[i] = BoneParentOverrideList[boneName].Value;
-                            }
-                        }
-                        BoneParentOverrideList.Clear();
-                    }
+                    UInt64 equipOffset = (UInt64)(UInt64*)&bonedCharacter->DrawData;
+                    ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Head, currentEquipmentSet.Head);
+                    ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Ears, currentEquipmentSet.Ears);
+                    ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Neck, currentEquipmentSet.Neck);
+
+                    //ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.MainHand, currentWeaponSet.MainHand, 0, 1, 0, 0);
+                    //ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.OffHand, currentWeaponSet.OffHand, 0, 1, 0, 0);
+                    //ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.uk3, currentWeaponSet.Uk3, 0, 1, 0, 0);
+
+                    RefreshObject((GameObject*)player.Address);
                 }
-
-                Character* playerChar = player.GetCharacter();
-                UInt64 equipOffset = ((UInt64)playerChar) + 0x6D0;
-                ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Head, currentEquipmentSet.Head);
-                ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Body, currentEquipmentSet.Body);
-                ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Hands, currentEquipmentSet.Hands);
-                ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Ears, currentEquipmentSet.Ears);
-
-                ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.MainHand, currentWeaponSet.MainHand, 0, 1, 0, 0);
-                ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.OffHand, currentWeaponSet.OffHand, 0, 1, 0, 0);
-                ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.uk3, currentWeaponSet.Uk3, 0, 1, 0, 0);
 
                 haveSavedEquipmentSet = false;
             }
         }
 
+        private void ThirdToFirstPersonView()
+        {
+            Imports.Recenter();
+
+            PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
+            if (player != null)
+            {
+                GameObject* bonedObject = (GameObject*)player.Address;
+                Character* bonedCharacter = (Character*)player.Address;
+
+                if (bonedCharacter != null)
+                {
+                    if (haveSavedEquipmentSet == false)
+                    {
+                        currentEquipmentSet.Save(bonedCharacter);
+                        haveSavedEquipmentSet = true;
+                    }
+
+                    UInt64 equipOffset = (UInt64)(UInt64*)&bonedCharacter->DrawData;
+                    //----
+                    // override the head neck and earing
+                    //----
+                    if (bonedCharacter->DrawData.Head.Variant != 99)
+                    {
+                        HideHeadValue = bonedCharacter->DrawData.Flags1;
+                        bonedCharacter->DrawData.Flags1 = 0;
+
+                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Head, hiddenEquipHead);
+                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Neck, hiddenEquipNeck);
+                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Ears, hiddenEquipEars);
+
+                        RefreshObject((GameObject*)player.Address);
+                    }
+                }
+            }
+        }
+
+        Dictionary<string, BoneList> boneNameToEnum = new Dictionary<string, BoneList>();
+        Dictionary<ushort, Bone> boneLayoutA = new Dictionary<ushort, Bone>();
+
+        Dictionary<UInt64, Dictionary<BoneList, short>> boneLayout = new Dictionary<UInt64, Dictionary<BoneList, short>>();
+        Dictionary<UInt64, Bone[]> rawBoneList = new Dictionary<UInt64, Bone[]>();
+        SortedList<string, bool> reportedBones = new SortedList<string, bool>();
+        Dictionary<BoneList, KeyValuePair<int, short>> BoneParentOverrideList = new Dictionary<BoneList, KeyValuePair<int, short>>();
+
+        Dictionary<UInt64, List<KeyValuePair<Vector3, hkQsTransformf>>> boneLayoutT = new Dictionary<UInt64, List<KeyValuePair<Vector3, hkQsTransformf>>>();
 
         int timer = 100;
-        CharEquipSlotData hiddenEquipHead = new CharEquipSlotData(9236, 99, 0);
-        CharEquipSlotData hiddenEquipEars = new CharEquipSlotData(0, 99, 0);
-        CharEquipSlotData hiddenEquipBody = new CharEquipSlotData(6158, 99, 0);
-        CharWeaponSlotData hiddenEquipWeaponMainHand = new CharWeaponSlotData(0, 0, 0, 0);
-        CharWeaponSlotData hiddenEquipWeaponOffHand = new CharWeaponSlotData(0, 0, 0, 0);
+        CharEquipSlotData hiddenEquipHead = new CharEquipSlotData(6154, 99, 0);
+        CharEquipSlotData hiddenEquipEars = new CharEquipSlotData(0, 0, 0);
+        CharEquipSlotData hiddenEquipNeck = new CharEquipSlotData(0, 0, 0);
+        //CharWeaponSlotData hiddenEquipWeaponMainHand = new CharWeaponSlotData(0, 0, 0, 0);
+        //CharWeaponSlotData hiddenEquipWeaponOffHand = new CharWeaponSlotData(0, 0, 0, 0);
 
         bool haveSavedEquipmentSet = false;
         CharEquipData currentEquipmentSet = new CharEquipData();
-        CharWeaponData currentWeaponSet = new CharWeaponData();
+        //CharWeaponData currentWeaponSet = new CharWeaponData();
 
-        CameraModes oldGameMode = 0;
-        bool gameModeChanged = false;
-        private Dictionary<UInt64, List<KeyValuePair<Vector3, hkQsTransformf>>> boneLayout = new Dictionary<UInt64, List<KeyValuePair<Vector3, hkQsTransformf>>>();
-        private Dictionary<string, KeyValuePair<int, short>> BoneParentOverrideList = new Dictionary<string, KeyValuePair<int, short>>();
-
+        //private Dictionary<UInt64, List<KeyValuePair<Vector3, hkQsTransformf>>> boneLayout = new Dictionary<UInt64, List<KeyValuePair<Vector3, hkQsTransformf>>>();
         Dictionary<hkaPose, Dictionary<string, int>> boneNames = new Dictionary<hkaPose, Dictionary<string, int>>();
+        Matrix4x4 bridgeLocal = Matrix4x4.Identity;
+        Vector3 neckPosition = new Vector3(0, 0, 0);
 
+        public void DrawBoneRay(Matrix4x4 baseMatrix, Bone bone)
+        {
+            Vector3 vFrom = Vector3.Transform(bone.boneStart, baseMatrix);
+            Vector3 vTo = Vector3.Transform(bone.boneFinish, baseMatrix);
+            Imports.SetRayCoordinate((float*)&vFrom, (float*)&vTo);
+        }
+
+        public void DrawBones(Skeleton* skeleton)
+        {
+            boneLayout.Clear();
+            if (skeleton == null)
+                return;
+
+            Matrix4x4 curSkeletonPosition = Matrix4x4.CreateFromQuaternion(skeleton->Transform.Rotation);
+            curSkeletonPosition.Translation = skeleton->Transform.Position;
+            curSkeletonPosition.SetScale(skeleton->Transform.Scale);
+
+            //----
+            // Loops though the skeletal parts and gets the pose layouts
+            //----
+            for (ushort p = 0; p < skeleton->PartialSkeletonCount; p++)
+            {
+                hkaPose* objPose = skeleton->PartialSkeletons[p].GetHavokPose(0);
+                if (objPose == null)
+                    continue;
+
+                UInt64 objPose64 = (UInt64)objPose;
+                boneLayout.Add(objPose64, new Dictionary<BoneList, short>());
+
+                //----
+                // Loops though the pose bones and updates the ones that have tracking
+                //----
+                Bone[] boneArray = new Bone[objPose->LocalPose.Length];
+                for (short i = 0; i < objPose->LocalPose.Length; i++)
+                {
+                    string boneName = objPose->Skeleton->Bones[i].Name.String;
+                    short parentId = objPose->Skeleton->ParentIndices[i];
+
+                    if (!boneNameToEnum.ContainsKey(boneName))
+                    {
+                        if (!reportedBones.ContainsKey(boneName))
+                        {
+                            PluginLog.Log($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
+                            reportedBones.Add(boneName, true);
+                        }
+                        continue;
+                    }
+
+                    BoneList boneKey = boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._root_);
+                    boneLayout[objPose64].Add(boneKey, i);
+                    //PluginLog.Log($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
+
+                    if (parentId < 0)
+                        boneArray[i] = new Bone(boneKey, i, parentId, null, objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
+                    else
+                        boneArray[i] = new Bone(boneKey, i, parentId, boneArray[parentId], objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
+
+                    DrawBoneRay(curSkeletonPosition, boneArray[i]);
+                }
+            }
+        }
+
+        Matrix4x4 plrSkeletonPosition = Matrix4x4.Identity;
+        Matrix4x4 plrSkeletonPositionI = Matrix4x4.Identity;
+        Matrix4x4 headBoneMatrix = Matrix4x4.Identity;
+        Matrix4x4 headBoneMatrixI = Matrix4x4.Identity;
+        Vector3 eyeMidPoint = new Vector3(0, 0, 0);
+        Matrix4x4 eyeMidPointM = Matrix4x4.Identity;
+        byte HideHeadValue = 0;
+        bool hideWeapons = true;
+
+        public void RefreshObject(GameObject* obj2refresh)
+        {
+            obj2refresh->RenderFlags = 2;
+            System.Timers.Timer timer = new System.Timers.Timer();
+            timer.Interval = 500;
+            timer.Elapsed += (sender, e) => { RefreshObjectTick(timer, obj2refresh); };
+            timer.Enabled = true;
+        }
+
+        public void RefreshObjectTick(System.Timers.Timer timer, GameObject* obj2refresh)
+        {
+            obj2refresh->RenderFlags = 0;
+            timer.Enabled = false;
+        }
+
+        class ChangedType<T>
+        {
+            private T old = default(T);
+            public T Current
+            {
+                get => old;
+                set
+                {
+                    Changed = false;
+                    if (!EqualityComparer<T>.Default.Equals(value, old))
+                    {
+                        old = value;
+                        Changed = true;
+                    }
+                }
+            }
+            public bool Changed { get; private set; }
+            public ChangedType(T newVal = default(T))
+            {
+                old = newVal;
+                Current = newVal;
+                Changed = false;
+            }
+            public ChangedType<T> Set(T newVal)
+            {
+                Current = newVal;
+                return this;
+            }
+        }
+
+        class ChangedTypeBool
+        {
+            private bool old = false;
+            public bool Current
+            {
+                get => old;
+                set
+                {
+                    Changed = !(value == old);
+                    old = value;
+                }
+            }
+            public bool Changed { get; private set; }
+            public ChangedTypeBool(bool newVal = false)
+            {
+                old = newVal;
+                Current = newVal;
+                Changed = false;
+            }
+            public ChangedTypeBool Set(bool newVal)
+            {
+                Current = newVal;
+                return this;
+            }
+        }
+
+        private ChangedType<CameraModes> gameMode = new ChangedType<CameraModes>(CameraModes.None);
+
+
+        bool outputBonesOnce = false;
         public void Update(Dalamud.Game.Framework framework_)
         {
             if (hooksSet)
             {
                 Imports.UpdateController(controllerCallback);
-                Matrix4x4.Invert(Imports.GetFramePose(poseType.EyeOffset, 0), out eyeOffsetMatrix[0]);
-                Matrix4x4.Invert(Imports.GetFramePose(poseType.EyeOffset, 1), out eyeOffsetMatrix[1]);
-                Matrix4x4.Invert(Imports.GetFramePose(poseType.hmdPosition, -1), out hmdMatrix);
-                lhcMatrix = Imports.GetFramePose(poseType.LeftHand, -1);
-                rhcMatrix = Imports.GetFramePose(poseType.RightHand, -1);
 
-                Matrix4x4 rot90 = Matrix4x4.CreateRotationY(90 * RadianConversion);
-                lhcMatrixI = new Matrix4x4(
-                        -lhcMatrix.M33,-lhcMatrix.M32, lhcMatrix.M31, lhcMatrix.M34, 
-                        -lhcMatrix.M23,-lhcMatrix.M22, lhcMatrix.M21, lhcMatrix.M24,
-                        -lhcMatrix.M13,-lhcMatrix.M12, lhcMatrix.M11, lhcMatrix.M14,
-                         lhcMatrix.M43, lhcMatrix.M42, -lhcMatrix.M41, lhcMatrix.M44
-                        );
-
-                rhcMatrixI = new Matrix4x4(
-                        -rhcMatrix.M33,-rhcMatrix.M32, rhcMatrix.M31, rhcMatrix.M34,
-                        -rhcMatrix.M23,-rhcMatrix.M22, rhcMatrix.M21, rhcMatrix.M24,
-                        -rhcMatrix.M13,-rhcMatrix.M12, rhcMatrix.M11, rhcMatrix.M14,
-                         rhcMatrix.M43, rhcMatrix.M42, -rhcMatrix.M41, rhcMatrix.M44
-                        );
-                lhcMatrixI *= rot90;
-                rhcMatrixI *= rot90;
+                if (curEye == 0)
+                {
+                    hmdMatrix = Imports.GetFramePose(poseType.hmdPosition, -1);
+                    lhcMatrix = Imports.GetFramePose(poseType.LeftHand, -1);
+                    rhcMatrix = Imports.GetFramePose(poseType.RightHand, -1);
+                    Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
+                }
+                Matrix4x4 hmdFlip = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), 90 * Deg2Rad) * Matrix4x4.CreateFromAxisAngle(new Vector3(0, 0, 1), -90 * Deg2Rad);
+                Matrix4x4 hmdMatrixBody = hmdFlip * hmdMatrixI;
+                Matrix4x4 lhcMatrixCXZ = convertXZ * lhcMatrix * convertXZ;
+                Matrix4x4 rhcMatrixCXZ = convertXZ * rhcMatrix * convertXZ;
 
                 frfCalculateViewMatrix = false;
 
-                gameModeChanged = false;
-                if (oldGameMode != gameMode)
-                {
-                    oldGameMode = gameMode;
-                    gameModeChanged = true;
-                    Imports.Recenter();
-                }
 
-                boneLayout.Clear();
+                ScreenSettings* screenSettings = *(ScreenSettings**)((UInt64)frameworkInstance + 0x7A8);
+                Point halfScreen = new Point();
+                halfScreen.X = ((int)Device.Instance()->SwapChain->Width / 2);
+                halfScreen.Y = ((int)Device.Instance()->SwapChain->Height / 2);
+                //PluginLog.Log($"{(int)Device.Instance()->SwapChain->Height} {(int)Device.Instance()->SwapChain->Width}");
+                Point currentMouse = new Point();
+                Imports.GetCursorPos(out currentMouse);
+                Imports.ScreenToClient((IntPtr)screenSettings->hWnd, out currentMouse);
+
+                int mouseMultiplyer = 3;
+                if (dalamudMode)
+                    mouseMultiplyer = 1;
+
+                //----
+                // Changes anchor from top left corner to middle of screen
+                //----
+                virtualMouse.X = halfScreen.X + ((currentMouse.X - halfScreen.X) * mouseMultiplyer);
+                virtualMouse.Y = halfScreen.Y + ((currentMouse.Y - halfScreen.Y) * mouseMultiplyer);
+
+
+                if (gameMode.Current == CameraModes.ThirdPerson && gameMode.Changed == true)
+                    FirstToThirdPersonView();
+                else if (gameMode.Current == CameraModes.FirstPerson && gameMode.Changed == true)
+                    ThirdToFirstPersonView();
+
+                isMounted = false;
+                housingMode = false;
+
+                if (curEye == 0)
+                    rawBoneList.Clear();
+
                 PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
+                //GameObject* bonedObject = charList->Character0;
+                //PluginLog.Log($"BoneObject {(UInt64)bonedObject:X}");
                 if (player != null)
                 {
-                    Character* playerChar = player.GetCharacter();
-                    if (playerChar != null)
+                    GameObject* bonedObject = (GameObject*)player.Address;
+                    Character* bonedCharacter = (Character*)player.Address;
+                    isMounted = bonedCharacter->IsMounted();
+                }
+
+                //if (player != null && curEye == 0 && gameMode.Current == CameraModes.FirstPerson)
+                if (player != null && gameMode.Current == CameraModes.FirstPerson)
+                {
+                    GameObject* bonedObject = (GameObject*)player.Address;
+                    Character* bonedCharacter = (Character*)player.Address;
+
+
+                    if (bonedObject != null)
                     {
-                        if (haveSavedEquipmentSet == false)
-                        {
-                            currentEquipmentSet.Save(playerChar);
-                            currentWeaponSet.Save(playerChar);
-                            haveSavedEquipmentSet = true;
-                        }
-
-                        UInt64 equipOffset = ((UInt64)playerChar) + 0x6D0;
-                        if(equipOffset > 0 && gameMode == CameraModes.FirstPerson)
-                        {
-                            //----
-                            // override the head and earing
-                            //----
-                            if (playerChar->DrawData.Head.Variant != 99)
-                            {
-                                ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Head, hiddenEquipHead);
-                                ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Ears, hiddenEquipEars);
-                            }
-
-                            //----
-                            // override the body if hidden
-                            //----
-                            if (playerChar->DrawData.Top.Variant != 99 && xivr.cfg.data.fpmShowBody != true)
-                                ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Body, hiddenEquipBody);
-
-                            //----
-                            // override the weapon
-                            //----
-                            if (playerChar->DrawData.MainHandModel.Id != 0)
-                            {
-                                ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.MainHand, hiddenEquipWeaponMainHand, 0, 1, 0, 0);
-                                ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.OffHand, hiddenEquipWeaponOffHand, 0, 1, 0, 0);
-                                //ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.uk3, currentWeaponSet.Uk3, 0, 1, 0, 0);
-                            }
-                        }
+                        Vector3* objectModelPos = GameObjectGetPositionFn!(bonedObject);
+                        float bodyHeight = firstPersonCameraHeight - objectModelPos->Y;
 
                         //----
                         // Gets the skeletal system
                         //----
-                        ActorModel* actorModel = player.GetActorModel();
-                        if (actorModel != null && gameMode == CameraModes.FirstPerson)
+                        Model* model = (Model*)bonedObject->DrawObject;
+                        if (model != null)
                         {
-                            Skeleton* skeleton = actorModel->skeleton;
+                            Skeleton* skeleton = model->skeleton;
                             if (skeleton != null)
                             {
+                                plrSkeletonPosition = Matrix4x4.CreateFromQuaternion(skeleton->Transform.Rotation);
+                                plrSkeletonPosition.Translation = skeleton->Transform.Position;
+                                plrSkeletonPosition.SetScale(skeleton->Transform.Scale);
+                                Matrix4x4.Invert(plrSkeletonPosition, out plrSkeletonPositionI);
+                                boneLayout.Clear();
+
                                 //----
                                 // Loops though the skeletal parts and gets the pose layouts
                                 //----
                                 for (ushort p = 0; p < skeleton->PartialSkeletonCount; p++)
                                 {
-                                    hkaPose* playerPose = skeleton->PartialSkeletons[p].GetHavokPose(0);
-                                    if (playerPose == null) continue;
+                                    hkaPose* objPose = skeleton->PartialSkeletons[p].GetHavokPose(0);
+                                    if (objPose == null)
+                                        continue;
 
-                                    if (!boneNames.ContainsKey(*playerPose))
-                                        boneNames.Add(*playerPose, new Dictionary<string, int>());
-
-                                    if (!boneLayout.ContainsKey((UInt64)playerPose))
-                                        boneLayout.Add((UInt64)playerPose, new List<KeyValuePair<Vector3, hkQsTransformf>>());
+                                    UInt64 objPose64 = (UInt64)objPose;
+                                    boneLayout.Add(objPose64, new Dictionary<BoneList, short>());
 
                                     //----
                                     // Loops though the pose bones and updates the ones that have tracking
                                     //----
-                                    for (int i = 0; i < playerPose->LocalPose.Length; i++)
+                                    Bone[] boneArray = new Bone[objPose->LocalPose.Length];
+                                    for (short i = 0; i < objPose->LocalPose.Length; i++)
                                     {
-                                        Vector3 overrideType = new Vector3(0, 0, 0);
-                                        string boneName = playerPose->Skeleton->Bones[i].Name.String;
-                                        if (!boneNames[*playerPose].ContainsKey(boneName))
-                                            boneNames[*playerPose].Add(boneName, i);
+                                        string boneName = objPose->Skeleton->Bones[i].Name.String;
+                                        short parentId = objPose->Skeleton->ParentIndices[i];
 
-                                        hkQsTransformf transform = playerPose->LocalPose[i];
-                                        if (boneName == "j_ude_b_l" || boneName == "j_ude_b_r" || boneName == "n_hte_l" || boneName == "n_hte_r") // head forearm L/R wrist L/R
+                                        if (!boneNameToEnum.ContainsKey(boneName))
                                         {
-                                            overrideType.Z = 1;
-                                            transform.Scale.X = 0;
-                                            transform.Scale.Y = 0;
-                                            transform.Scale.Z = 0;
-                                            transform.Scale.W = 0;
-                                        }
-                                        if (boneName == "j_sebo_a") // Spine A.B.C
-                                        {
-                                            //overrideType.Y = 1;
-                                            Quaternion quat = Quaternion.Identity;
-                                            transform.Rotation.X = quat.X;
-                                            transform.Rotation.Y = quat.Y;
-                                            transform.Rotation.Z = quat.Z;
-                                            transform.Rotation.W = quat.W;
-                                        }
-                                        if (boneName == "j_f_eye_l" || boneName == "j_f_eye_r") // eyes
-                                        {
-                                        }
-                                        if (xivr.cfg.data.motioncontrol)
-                                        {
-                                            float bodyHeight = firstPersonCameraHeight - actorModel->basePosition.Translation.Y;
-
-                                            if (boneName == "j_te_l" || boneName == "n_hte_l") // left hand/wrist/weapon
+                                            if (!reportedBones.ContainsKey(boneName))
                                             {
-                                                if (playerPose->Skeleton->ParentIndices[i] != 0)
-                                                    BoneParentOverrideList[boneName] = new KeyValuePair<int, short>(i, playerPose->Skeleton->ParentIndices[i]);
-                                                playerPose->Skeleton->ParentIndices[i] = 0;
-
-                                                overrideType.X = 1;
-                                                Vector4 pos = new Vector4(lhcMatrixI.M41, bodyHeight + lhcMatrixI.M42, lhcMatrixI.M43, 0);
-                                                transform.Translation.X = pos.X;
-                                                transform.Translation.Y = pos.Y;
-                                                transform.Translation.Z = pos.Z;
-
-                                                overrideType.Y = 1;
-                                                Quaternion quat = Quaternion.CreateFromRotationMatrix(lhcMatrixI);
-                                                transform.Rotation.X = quat.X;
-                                                transform.Rotation.Y = quat.Y;
-                                                transform.Rotation.Z = quat.Z;
-                                                transform.Rotation.W = quat.W;
+                                                PluginLog.Log($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
+                                                reportedBones.Add(boneName, true);
                                             }
-                                            else if (boneName == "j_te_r" || boneName == "n_hte_r") // right hand/wrist/weapon
+                                            continue;
+                                        }
+
+                                        BoneList boneKey = boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._root_);
+                                        boneLayout[objPose64].Add(boneKey, i);
+                                        //PluginLog.Log($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
+
+                                        if (parentId < 0)
+                                            boneArray[i] = new Bone(boneKey, i, parentId, null, objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
+                                        else
+                                            boneArray[i] = new Bone(boneKey, i, parentId, boneArray[parentId], objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
+
+                                        //boneArray[i].SetTransformFromLocalBase();
+
+                                        if (outputBonesOnce == false)
+                                        {
+                                            //boneArray[i].SetReference(false);
+                                            //boneArray[i].OutputToParent(false);
+
+                                            /*
+                                            PluginLog.Log($"Bone {i}/{objPose->LocalPose.Length} Name {boneName}");
+                                            PluginLog.Log($"{boneArray[i].transform.Rotation.X}, {boneArray[i].transform.Rotation.Y}, {boneArray[i].transform.Rotation.Z}, {boneArray[i].transform.Rotation.W}");
+                                            PluginLog.Log($"{boneArray[i].transform.Translation.X}, {boneArray[i].transform.Translation.Y}, {boneArray[i].transform.Translation.Z}, {boneArray[i].transform.Translation.W}");
+                                            PluginLog.Log($"-");
+                                            PluginLog.Log($"{boneMatrix.M11}, {boneMatrix.M12}, {boneMatrix.M13}, {boneMatrix.M14}");
+                                            PluginLog.Log($"{boneMatrix.M21}, {boneMatrix.M22}, {boneMatrix.M23}, {boneMatrix.M24}");
+                                            PluginLog.Log($"{boneMatrix.M31}, {boneMatrix.M32}, {boneMatrix.M33}, {boneMatrix.M34}");
+                                            PluginLog.Log($"{boneMatrix.M41}, {boneMatrix.M42}, {boneMatrix.M43}, {boneMatrix.M44}");
+                                            PluginLog.Log($"-");
+                                            PluginLog.Log($"{quatMat.X}, {quatMat.Y}, {quatMat.Z}, {quatMat.W}");
+                                            PluginLog.Log($"{vecMat.X}, {vecMat.Y}, {vecMat.Z}, 0");
+                                            PluginLog.Log($"-");
+                                            */
+                                        }
+                                    }
+                                    rawBoneList[objPose64] = boneArray;
+
+                                    if (outputBonesOnce == false)
+                                    {
+                                        //Matrix4x4 boneMatI = boneArray[0].ConvertToLocal(rhcMatrix);
+                                        /*
+                                        PluginLog.Log($"-");
+                                        PluginLog.Log($"{rhcMatrix.M11}, {rhcMatrix.M12}, {rhcMatrix.M13}, {rhcMatrix.M14}");
+                                        PluginLog.Log($"{rhcMatrix.M21}, {rhcMatrix.M22}, {rhcMatrix.M23}, {rhcMatrix.M24}");
+                                        PluginLog.Log($"{rhcMatrix.M31}, {rhcMatrix.M32}, {rhcMatrix.M33}, {rhcMatrix.M34}");
+                                        PluginLog.Log($"{rhcMatrix.M41}, {rhcMatrix.M42}, {rhcMatrix.M43}, {rhcMatrix.M44}");
+                                        PluginLog.Log($"-");
+                                        PluginLog.Log($"{boneMatI.M11}, {boneMatI.M12}, {boneMatI.M13}, {boneMatI.M14}");
+                                        PluginLog.Log($"{boneMatI.M21}, {boneMatI.M22}, {boneMatI.M23}, {boneMatI.M24}");
+                                        PluginLog.Log($"{boneMatI.M31}, {boneMatI.M32}, {boneMatI.M33}, {boneMatI.M34}");
+                                        PluginLog.Log($"{boneMatI.M41}, {boneMatI.M42}, {boneMatI.M43}, {boneMatI.M44}");
+                                        PluginLog.Log($"-");
+                                        */
+
+                                        //outputBonesOnce = true;
+                                        //boneArray[0].SetReferenceChildren();
+                                        //boneArray[0].Output();
+                                        //boneArray[0].Output();
+                                    }
+                                    //rawBoneList[objPose64][0].ScaleAll(rawBoneList[objPose64], 0, 0, 0);
+
+                                    short rootBone = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_root, -1);
+                                    short headBone = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_head, -1);
+
+                                    if (rootBone >= 0)
+                                    {
+
+                                        //rootBonePos = boneArray[rootBone].boneFinish;
+                                        //rootBonePos.Y -= firstPersonCameraHeight;
+                                        short abdomen = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_abdomen, -1);
+
+                                        short spineA = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_a, -1);
+                                        short spineB = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_b, -1);
+                                        short spineC = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_c, -1);
+                                        short neck = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_neck, -1);
+
+                                        short collarboneL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_collarbone_l, -1);
+                                        short armL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_arm_l, -1);
+                                        short forearmL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_forearm_l, -1);
+                                        short elbowL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_elbow_l, -1);
+                                        short handL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_hand_l, -1);
+                                        short wristL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_wrist_l, -1);
+
+                                        short collarboneR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_collarbone_r, -1);
+                                        short armR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_arm_r, -1);
+                                        short forearmR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_forearm_r, -1);
+                                        short elbowR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_elbow_r, -1);
+                                        short handR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_hand_r, -1);
+                                        short wristR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_wrist_r, -1);
+
+
+                                        short scabbardL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_scabbard_l, -1);
+                                        short sheatheL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_sheathe_l, -1);
+                                        short scabbardR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_scabbard_r, -1);
+                                        short sheatheR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_sheathe_r, -1);
+
+                                        short weaponL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_weapon_l, -1);
+                                        short weaponR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_weapon_r, -1);
+
+                                        //if (neck >= 0)
+                                        //    boneArray[neck].SetReference(true, true);
+
+                                        //DrawBoneRay(curSkeletonPosition, boneArray[headBone]);
+
+                                        //PluginLog.Log($"{boneArray[rootBone].boneFinish.X} {boneArray[rootBone].boneFinish.Y} {boneArray[rootBone].boneFinish.Z} || {boneArray[rootBone].transform.Translation.X} {boneArray[rootBone].transform.Translation.Y} {boneArray[rootBone].transform.Translation.Z}");
+
+                                        //Quaternion q = Quaternion.CreateFromRotationMatrix(boneArray[clothBABone].boneMatrix);
+                                        //Vector3 v = boneArray[clothBABone].boneMatrix.Translation;
+
+                                        //Matrix4x4.Invert(boneArray[clothBABone].parent.boneMatrix, out Matrix4x4 invP);
+                                        //Matrix4x4.Invert(boneArray[clothBABone].boneMatrix, out Matrix4x4 inv);
+                                        //Matrix4x4 itm = invP * inv;
+                                        //Matrix4x4 itm = boneArray[clothBABone].boneMatrix * invP;
+                                        //Matrix4x4.Invert(itm, out Matrix4x4 itmI);
+                                        //q = Quaternion.CreateFromRotationMatrix(itmI);
+                                        //v = itmI.Translation;
+                                        //Vector4 t = Vector4.Transform(Vector4.One, itmI);
+                                        //PluginLog.Log($"A {boneArray[clothBABone].transform.Rotation.X} {boneArray[clothBABone].transform.Rotation.Y} {boneArray[clothBABone].transform.Rotation.Z} {boneArray[clothBABone].transform.Rotation.W} -- {boneArray[clothBABone].transform.Translation.X} {boneArray[clothBABone].transform.Translation.Y} {boneArray[clothBABone].transform.Translation.Z} {boneArray[clothBABone].transform.Translation.W}");
+                                        //PluginLog.Log($"B {q.X} {q.Y} {q.Z} {q.W} -- {v.X} {v.Y} {v.Z} 0");
+
+                                        //0x141733460 - hkQsTransformf.?setAxisAngle@hkQuaternionf@@QEAAXAEBVhkVector4f@@AEBVhkSimdFloat32@@@Z
+
+                                        if (isMounted == false && abdomen >= 0)
+                                        {
+                                            if (xivr.cfg.data.immersiveMovement == false && xivr.cfg.data.immersiveFull == false)
                                             {
-                                                if (playerPose->Skeleton->ParentIndices[i] != 0)
-                                                    BoneParentOverrideList[boneName] = new KeyValuePair<int, short>(i, playerPose->Skeleton->ParentIndices[i]);
-                                                playerPose->Skeleton->ParentIndices[i] = 0;
+                                                Vector3 angles = new Vector3(0, 0, 0);
+                                                if (xivr.cfg.data.conloc)
+                                                    angles = GetAngles(lhcMatrix);
+                                                Matrix4x4 revOnward = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), -angles.Y);
 
-                                                overrideType.X = 1;
-                                                Vector4 pos = new Vector4(rhcMatrixI.M41, bodyHeight + rhcMatrixI.M42, rhcMatrixI.M43, 0);
-                                                transform.Translation.X = pos.X;
-                                                transform.Translation.Y = pos.Y;
-                                                transform.Translation.Z = pos.Z;
+                                                boneArray[abdomen].SetReference(true, false);
+                                                boneArray[spineA].SetReference(true, true);
 
-                                                overrideType.Y = 1;
-                                                Quaternion quat = Quaternion.CreateFromRotationMatrix(rhcMatrixI);
-                                                transform.Rotation.X = quat.X;
-                                                transform.Rotation.Y = quat.Y;
-                                                transform.Rotation.Z = quat.Z;
-                                                transform.Rotation.W = quat.W;
+                                                boneArray[spineA].updateRotation = true;
+                                                boneArray[spineA].transform.Rotation = (boneArray[spineA].transform.Rotation.Convert() * Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), angles.Y)).Convert();
+
+                                                if (xivr.cfg.data.conloc == false && xivr.cfg.data.hmdloc == false)
+                                                {
+                                                    boneArray[spineA].updatePosition = true;
+                                                    boneArray[spineA].transform.Translation.X = -(hmdMatrix.Translation.X * 0.5f);
+                                                    boneArray[spineA].transform.Translation.Y = (hmdMatrix.Translation.Y * 0.5f);
+                                                    boneArray[spineA].transform.Translation.Z = -(hmdMatrix.Translation.Z * 0.5f);
+                                                    boneArray[spineA].transform.Translation.W = 0;
+                                                }
                                             }
                                         }
 
-                                        boneLayout[(UInt64)playerPose].Add(new KeyValuePair<Vector3, hkQsTransformf>(overrideType, transform));
+
+                                        if (scabbardL >= 0) boneArray[scabbardL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                        if (scabbardR >= 0) boneArray[scabbardR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                        if (sheatheL >= 0) boneArray[sheatheL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                        if (sheatheR >= 0) boneArray[sheatheR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+
+                                        if (isMounted == false && handL >= 0 && xivr.cfg.data.motioncontrol)
+                                        {
+                                            boneArray[armL].SetReference(false, true);
+                                            boneArray[armL].transform.Rotation = Quaternion.CreateFromYawPitchRoll(-90 * Deg2Rad, 180 * Deg2Rad, 90 * Deg2Rad).Convert();
+                                            boneArray[forearmL].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, -90 * Deg2Rad).Convert();
+                                            boneArray[handL].transform.Rotation = Quaternion.Identity.Convert();
+                                            boneArray[collarboneL].CalculateMatrix(true);
+
+                                            Matrix4x4 lhc = lhcMatrixCXZ;
+                                            //lhc *= bridgeLocal;
+                                            lhc *= boneArray[headBone].localMatrix;
+                                            lhc *= boneArray[neck].localMatrix;
+                                            lhc *= boneArray[collarboneL].localMatrixI;
+                                            lhc *= boneArray[armL].localMatrixI;
+                                            lhc *= boneArray[forearmL].localMatrixI;
+                                            lhc = lhc.SetScale(boneArray[handL].transform.Scale);
+                                            boneArray[armL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+
+                                            boneArray[handL].SetTransform(lhc);
+                                            boneArray[wristL].SetTransform(lhc);
+                                            boneArray[handL].SetScale(new Vector3(10000f, 10000f, 10000f));
+                                        }
+                                        if (isMounted == false && handR >= 0 && xivr.cfg.data.motioncontrol)
+                                        {
+                                            boneArray[armR].SetReference(false, true);
+                                            boneArray[armR].transform.Rotation = Quaternion.CreateFromYawPitchRoll(90 * Deg2Rad, 180 * Deg2Rad, 90 * Deg2Rad).Convert();
+                                            boneArray[forearmR].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, -90 * Deg2Rad).Convert();
+                                            boneArray[handR].transform.Rotation = Quaternion.Identity.Convert();
+                                            boneArray[collarboneR].CalculateMatrix(true);
+
+                                            Matrix4x4 rhc = rhcMatrixCXZ;
+                                            //rhc *= bridgeLocal;
+                                            rhc *= boneArray[headBone].localMatrix;
+                                            rhc *= boneArray[neck].localMatrix;
+                                            rhc *= boneArray[collarboneR].localMatrixI;
+                                            rhc *= boneArray[armR].localMatrixI;
+                                            rhc *= boneArray[forearmR].localMatrixI;
+                                            rhc = rhc.SetScale(boneArray[handR].transform.Scale);
+                                            boneArray[armR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+
+                                            boneArray[handR].SetTransform(rhc);
+                                            boneArray[wristR].SetTransform(rhc);
+                                            boneArray[handR].SetScale(new Vector3(10000f, 10000f, 10000f));
+                                        }
+                                        if (weaponL >= 0 && weaponR >= 0 && xivr.cfg.data.showWeaponInHand == false && xivr.cfg.data.motioncontrol)
+                                        {
+                                            boneArray[weaponL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                            boneArray[weaponR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                        }
+                                        if (neck >= 0)
+                                        {
+                                            neckPosition = boneArray[neck].boneMatrix.Translation;// Vector3.Transform(boneArray[neck].boneStart, plrSkeletonPosition);
+                                            //Matrix4x4.Invert(headBoneMatrix * curViewMatrixWithoutHMD, out eyeMidPointM);
+                                            //Matrix4x4 fullNeck = plrSkeletonPosition;// * boneArray[neck].boneMatrix;
+                                            //neckPosition = fullNeck.Translation; //boneArray[neck].boneMatrix.Translation;
+                                            //boneArray[neck].SetReference();
+                                            //boneArray[neck].transform.Translation = new Vector3(0, 0, 0).Convert();
+                                            //boneArray[neck].transform.Rotation = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), 180 * Deg2Rad).Convert();
+                                            //boneArray[neck].transform.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
+                                        }
+                                        if (headBone >= 0)
+                                        {
+                                            //headBoneMatrix = boneArray[headBone].boneMatrix;// * plrSkeletonPosition;
+                                            headBoneMatrix = boneArray[headBone].localMatrix * boneArray[neck].localMatrixI;
+                                            //headBoneMatrix.Translation *= eyeMidPoint;
+                                            headBoneMatrix *= boneArray[neck].boneMatrix;
+                                            headBoneMatrix *= plrSkeletonPosition;
+                                            hkQsTransformf identTrans = new hkQsTransformf();
+                                            identTrans.Translation = boneArray[headBone].transform.Translation;
+                                            identTrans.Rotation = Quaternion.Identity.Convert();
+                                            identTrans.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
+                                            boneArray[headBone].SetTransform(identTrans, false, true);
+
+                                            boneArray[neck].updateRotation = true;
+                                            boneArray[neck].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, 180 * Deg2Rad).Convert();
+                                        }
+                                    }
+                                    else if (headBone >= 0)
+                                    {
+                                        short bridge = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_bridge, -1);
+                                        short eyeL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_eye_l, -1);
+                                        short eyeR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_eye_r, -1);
+
+                                        boneArray[headBone].SetReference(true, true);
+                                        if (eyeL >= 0 && eyeR >= 0)
+                                        {
+                                            eyeMidPoint = ((boneArray[eyeL].boneMatrix.Translation + boneArray[eyeR].boneMatrix.Translation) / 2.0f) - boneArray[headBone].boneMatrix.Translation;
+                                        }
+
+
+                                        if (bridge >= 0)
+                                        {
+                                            bridgeLocal = boneArray[bridge].localMatrix;
+                                            //headBoneMatrix = boneArray[headBone].boneMatrix;// * plrSkeletonPosition * hmdMatrix;
+                                            //headBoneMatrix = headBoneMatrix * plrSkeletonPosition; //.Translation + headBoneMatrix.Translation;// boneArray[bridge].boneMatrix.Translation;
+                                            //Matrix4x4 eyeMidM = boneArray[headBone].boneMatrix;
+                                            //eyeMidM.Translation = headBonePosition;
+                                            //PluginLog.Log($"{boneArray[eyeL].boneMatrix.Translation.X} {boneArray[eyeR].boneMatrix.Translation.X} - {eyeMid.X.ToString("0.00000000")} {eyeMid.Y} {eyeMid.Z}");
+                                            //headBoneMatrixI = boneArray[bridge].boneMatrixI;
+
+                                            //hmdMatrix = plrSkeletonPositionI * headBoneMatrix;
+                                            //Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
+                                            if (xivr.cfg.data.immersiveFull)
+                                            {
+                                                hmdMatrix.M42 = (xivr.cfg.data.offsetAmountYFPS / 100);
+                                                hmdMatrix.M43 = (xivr.cfg.data.offsetAmountZFPS / 100);
+                                                hmdMatrix = hmdMatrix * hmdFlip * headBoneMatrix * curViewMatrixWithoutHMD;
+                                                Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
+                                            }
+                                        }
+
+                                        //DrawBoneRay(curSkeletonPosition, boneArray[eyeLeftBone]);
+                                        //DrawBoneRay(curSkeletonPosition, boneArray[eyeRightBone]);
+
+                                        hkQsTransformf identTrans = new hkQsTransformf();
+                                        identTrans.Translation = new Vector3(0, 0, 0).Convert();
+                                        identTrans.Rotation = Quaternion.Identity.Convert();
+                                        identTrans.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
+                                        boneArray[0].SetTransform(identTrans, false, true);
                                     }
                                 }
                             }
+
+
+                            /*
+                            //----
+                            // Change hair to bald
+                            //----
+                            if(outputBonesOnce == false)
+                            {
+                                CharCustData* customData = (CharCustData*)((Character*)bonedObject)->CustomizeData;
+                                customData->HairStyle = 255;
+                                customData->FaceType = 255;
+                                
+                                bool done = ((Human*)bonedObject->DrawObject)->UpdateDrawData(customData->Data, true);
+                                //bonedObject->DisableDraw();
+                                //bonedObject->EnableDraw();
+
+                                //PluginLog.Log($"{done} {(UInt64)customData->Data:X} {customData->Race} {customData->Height} {customData->FaceType}");
+                            }*/
+                            outputBonesOnce = true;
+                            //DrawBones(skeleton);
+                        }
+                    }
+
+
+                }
+
+                if (gameMode.Current == CameraModes.FirstPerson)
+                {
+                    //----
+                    // Draws Skeletal overlay for all models
+                    // to get the full bone list
+                    //----
+                    int objCount = DalamudApi.ObjectTable.Length;
+                    for (int i = 0; i < objCount; i++)
+                    {
+                        Dalamud.Game.ClientState.Objects.Types.GameObject? tmpObj = DalamudApi.ObjectTable[i];
+                        if (tmpObj == null)
+                            continue;
+
+                        if ((int)tmpObj.ObjectKind == 1 || //player
+                            (int)tmpObj.ObjectKind == 2 || // BattleNpc
+                            (int)tmpObj.ObjectKind == 3 || // EventNpc
+                            (int)tmpObj.ObjectKind == 8 || // mount
+                            (int)tmpObj.ObjectKind == 9 || // Companion
+                            (int)tmpObj.ObjectKind == 10) // Retainer
+                        {
+                            GameObject* bonedObject = (GameObject*)tmpObj.Address;
+                            if (bonedObject == null)
+                                continue;
+
+                            Model* model = (Model*)bonedObject->DrawObject;
+                            if (model == null)
+                                continue;
+
+                            //DrawBones(model->skeleton);
                         }
                     }
                 }
+                /*
+                //----
+                // Detects if over a ui element by checking inputdata isnt 0
+                // and run haptics if a change occurs
+                //----
+                UInt64 framework = (UInt64)frameworkInstance;
+                UIModule* uiModule = frameworkInstance->GetUiModule();
+                UInt64 inputData = (UInt64)uiModule->GetUIInputData();
+                int gameXLeft = *(int*)(framework + 0x9F8);
+                int uiXLeft = *(int*)(inputData + 0x498);
 
-                if (gameModeChanged == true && gameMode == CameraModes.ThirdPerson)
-                    FirstToThirdPersonView();
-
+                mouseoverUI.Current = (gameXLeft == uiXLeft);
+                if (mouseoverUI.Changed)
+                    Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 1.0f, 0.25f);
+                */
 
                 //----
-                // Saves the target arrow alpha
+                // Haptics if mouse over target changes
                 //----
-                if (targetAddonAlpha == 0)
-                {
-                    AtkUnitBase* targetAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_TargetCursor", 1);
-                    if (targetAddon != null)
-                        targetAddonAlpha = targetAddon->Alpha;
-                }
-
-                AtkUnitBase* CharSelectAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaSelectTitle", 1);
-                AtkUnitBase* CharMakeAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaMakeTitle", 1);
-
-                if (CharSelectAddon == null && CharMakeAddon == null && DalamudApi.ClientState.LocalPlayer == null)
-                    timer = 100;
-                
-                if(timer > 0)
-                {
-                    forceFloatingScreen = true;
-                    timer--;
-                }
-
-                curEye = nextEye[curEye];
-                //SetFramePose();
+                mouseoverTarget.Current = (targetSystem->MouseOverTarget != null);
+                if (mouseoverTarget.Current && mouseoverTarget.Changed)
+                    Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 1.0f, 0.25f);
             }
+
+
+            //----
+            // Saves the target arrow alpha
+            //----
+            if (targetAddonAlpha == 0)
+            {
+                AtkUnitBase* targetAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_TargetCursor", 1);
+                if (targetAddon != null)
+                    targetAddonAlpha = targetAddon->Alpha;
+            }
+
+            AtkUnitBase* CharSelectAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaSelectTitle", 1);
+            AtkUnitBase* CharMakeAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaMakeTitle", 1);
+            AtkUnitBase* HousingGoods = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("HousingGoods", 1);
+
+            if (CharSelectAddon == null && CharMakeAddon == null && DalamudApi.ClientState.LocalPlayer == null)
+                timer = 100;
+
+            if (timer > 0)
+            {
+                forceFloatingScreen = true;
+                timer--;
+            }
+            else if (timer == 0)
+            {
+                timer = -1;
+
+                int objBorder = ConfigModule.Instance()->GetIntValue(ConfigOption.ObjectBorderingType);
+                if (objBorder == 0)
+                    ConfigModule.Instance()->SetOption(ConfigOption.ObjectBorderingType, 1);
+            }
+
+
+            if (HousingGoods != null)
+                housingMode = true;
+
+            if (curRenderMode == RenderModes.TwoD)
+                curEye = 0;
+            else
+                curEye = nextEye[curEye];
+            //SetFramePose();
+            //PluginLog.Log($"-- Update --  {curEye}");
         }
 
-
-
-        public void ForceFloatingScreen(bool forceFloating)
+        public void ForceFloatingScreen(bool forceFloating, bool isCutscene)
         {
             forceFloatingScreen = forceFloating;
+            inCutscene = isCutscene;
         }
 
         public void SetRotateAmount(float x, float y)
         {
-            rotateAmount.X = (x * RadianConversion);
-            rotateAmount.Y = (y * RadianConversion);
+            rotateAmount.X = (x * Deg2Rad);
+            rotateAmount.Y = (y * Deg2Rad);
         }
 
         public Point GetWindowSize()
         {
-            Device *dev = Device.Instance();
-            return new Point((int)dev->Width, (int)dev->Height);
+            Rectangle rectangle = new Rectangle();
+            ScreenSettings* screenSettings = *(ScreenSettings**)((UInt64)frameworkInstance + 0x7A8);
+            Imports.GetClientRect((IntPtr)screenSettings->hWnd, out rectangle);
+            return new Point(rectangle.Width, rectangle.Height);
         }
 
-        public void WindowResize(IntPtr hwnd, int width, int height)
+        public void WindowResize(int width, int height)
         {
             //----
             // Resizes the internal buffers
@@ -857,7 +1286,37 @@ namespace xivr
             //----
             // Resizes the client window to match the internal buffers
             //----
-            Imports.ResizeWindow(hwnd, width, height);
+            ScreenSettings* screenSettings = *(ScreenSettings**)((UInt64)frameworkInstance + 0x7A8);
+            Imports.ResizeWindow((IntPtr)screenSettings->hWnd, width, height);
+        }
+
+
+        public void SetRenderingMode()
+        {
+            if (hooksSet == true)
+            {
+                RenderModes rMode = curRenderMode;
+                if (xivr.cfg.data.mode2d)
+                    rMode = RenderModes.TwoD;
+                else
+                    rMode = RenderModes.AlternatEye;
+
+                if (rMode != curRenderMode)
+                {
+                    curRenderMode = rMode;
+
+                    if (curRenderMode == RenderModes.TwoD)
+                    {
+                        eyeOffsetMatrix[0] = Matrix4x4.Identity;
+                        eyeOffsetMatrix[1] = Matrix4x4.Identity;
+                    }
+                    else
+                    {
+                        Matrix4x4.Invert(Imports.GetFramePose(poseType.EyeOffset, 0), out eyeOffsetMatrix[0]);
+                        Matrix4x4.Invert(Imports.GetFramePose(poseType.EyeOffset, 1), out eyeOffsetMatrix[1]);
+                    }
+                }
+            }
         }
 
         public void Dispose()
@@ -890,6 +1349,31 @@ namespace xivr
                 }
             }
         }
+
+
+        /*
+        //----
+        // CreateHuman Create
+        //---- 0x300960 - create battle character
+        private delegate void CreateHumanCreateDg(UInt64 a, UInt64 b, uint* c, byte d);
+        [Signature("E8 ?? ?? ?? ?? 48 8B F8 48 85 C0 74 28 48 8D 55 D7", DetourName = nameof(CreateHumanCreateFn))]
+        private Hook<CreateHumanCreateDg>? CreateHumanCreateHook = null;
+
+        [HandleStatus("CreateHumanCreate")]
+        public void CreateHumanCreateStatus(bool status)
+        {
+            if (status == true)
+                CreateHumanCreateHook?.Enable();
+            else
+                CreateHumanCreateHook?.Disable();
+        }
+        private void CreateHumanCreateFn(UInt64 a, UInt64 b, uint* c, byte d)
+        {
+            PluginLog.Log($"CreateHumanCreateFn {a:X} {b} {(UInt64)c} {d}");
+            CreateHumanCreateHook!.Original(a, b, c, d);
+        }
+        */
+
 
 
         //----
@@ -926,6 +1410,20 @@ namespace xivr
         }
 
         //----
+        // GameObjectGetPosition
+        //----
+        private delegate Vector3* GameObjectGetPositionDg(GameObject* item);
+        [Signature(Signatures.GameObjectGetPosition, Fallibility = Fallibility.Fallible)]
+        private GameObjectGetPositionDg? GameObjectGetPositionFn = null;
+
+        //----
+        // TargetSystem.GetMouseOverTarget
+        //----
+        private delegate UInt64 GetMouseOverTargetDg(TargetSystem* targetSystem, int CoordX, int CoordY, int* TargetsInRange, UInt64 targetList);
+        [Signature(Signatures.GetMouseOverTarget, Fallibility = Fallibility.Fallible)]
+        private GetMouseOverTargetDg? GetMouseOverTargetFn = null;
+
+        //----
         // SetRenderTarget
         //----
         private delegate void SetRenderTargetDg(UInt64 a, UInt64 b, Structures.Texture** c, UInt64 d, UInt64 e, UInt64 f);
@@ -938,6 +1436,13 @@ namespace xivr
         private delegate UInt64 AllocateQueueMemoryDg(UInt64 a, UInt64 b);
         [Signature(Signatures.AllocateQueueMemory, Fallibility = Fallibility.Fallible)]
         private AllocateQueueMemoryDg? AllocateQueueMemmoryFn = null;
+
+        //----
+        // GetCutsceneCameraOffset
+        //----
+        private delegate UInt64 GetCutsceneCameraOffsetDg(UInt64 a);
+        [Signature(Signatures.GetCutsceneCameraOffset, Fallibility = Fallibility.Fallible)]
+        private GetCutsceneCameraOffsetDg? GetCutsceneCameraOffsetFn = null;
 
         //----
         // Pushback
@@ -966,7 +1471,6 @@ namespace xivr
             Structures.Texture* texture = Imports.GetUIRenderTexture(curEye);
             UInt64 threadedOffset = GetThreadedOffset();
             SetRenderTargetFn!(threadedOffset, 1, &texture, 0, 0, 0);
-
             AddClearCommand();
 
             overrideFromParent.Push(true);
@@ -975,8 +1479,136 @@ namespace xivr
         }
 
 
+        /*
+        //----
+        // GetTargetFromRay
+        //----
+        private delegate bool GetTargetFromRayDg(TargetSystem* targetSystem, Vector3* ray, Vector3* position, UInt64* target);
+        //[Signature(Signatures.GetTargetFromRay, Fallibility = Fallibility.Fallible)]
+        //private GetTargetFromRayDg? GetTargetFromRayFn = null;
+        [Signature(Signatures.GetTargetFromRay, DetourName = nameof(GetTargetFromRayFn))]
+        private Hook<GetTargetFromRayDg>? GetTargetFromRayHook = null;
+
+        [HandleStatus("GetTargetFromRay")]
+        public void GetTargetFromRayStatus(bool status)
+        {
+            if (status == true)
+                GetTargetFromRayHook?.Enable();
+            else
+                GetTargetFromRayHook?.Disable();
+        }
+
+        private bool GetTargetFromRayFn(TargetSystem* targetSystem, Vector3* position1, Vector3* position2, UInt64* target)
+        {
+            //PluginLog.Log($"GetTargetFromRayFn {(UInt64)targetSystem:X} | {position1[0]}, {position1[1]}, {position1[2]} | {position2[0]}, {position2[1]}, {position2[2]} | {(UInt64)target:X}");
+            bool retVal = GetTargetFromRayHook!.Original(targetSystem, position1, position2, target);
+            //if (position2->Y > 0)
+            //    Imports.SetRayCoordinate((float*)position1, (float*)position2);
+            //PluginLog.Log($"GetTargetFromRayFn {(UInt64)target:X} | {position1->X}, {position1->Y}, {position1->Z} | {position2->X}, {position2->Y}, {position2->Z} | {retVal}");
+            return retVal;
+        }
+        */
+
+        //----
+        // ScreenPonitToRay
+        //----
+        private delegate Ray* ScreenPointToRayDg(RawGameCamera* gameCamera, Ray* ray, int mousePosX, int mousePosY);
+        [Signature(Signatures.ScreenPointToRay, DetourName = nameof(ScreenPointToRayFn))]
+        private Hook<ScreenPointToRayDg> ScreenPointToRayHook = null;
+
+        [HandleStatus("ScreenPonitToRay")]
+        public void ScreenPonitToRayStatus(bool status)
+        {
+            if (status == true)
+                ScreenPointToRayHook?.Enable();
+            else
+                ScreenPointToRayHook?.Disable();
+        }
+        private Ray* ScreenPointToRayFn(RawGameCamera* gameCamera, Ray* ray, int mousePosX, int mousePosY)
+        {
+            if (xivr.cfg.data.motioncontrol)
+            {
+                Matrix4x4 rayPos = rhcMatrix * curViewMatrixWithoutHMDI;
+                Vector3 frwdFar = new Vector3(rayPos.M31, rayPos.M32, rayPos.M33) * -1;
+                ray->Origin = rayPos.Translation;
+                ray->Direction = Vector3.Normalize(frwdFar);
+            }
+            else //if (xivr.cfg.data.hmdPointing)
+            {
+                Matrix4x4 rayPos = hmdMatrix * curViewMatrixWithoutHMDI;
+                Vector3 frwdFar = new Vector3(rayPos.M31, rayPos.M32, rayPos.M33) * -1;
+                ray->Origin = rayPos.Translation;
+                ray->Direction = Vector3.Normalize(frwdFar);
+            }
+            //else
+            //    ScreenPointToRayHook!.Original(gameCamera, ray, mousePosX, mousePosY);
+
+            return ray;
+        }
 
 
+        //----
+        // ScreenPonitToRay1
+        //----
+        private delegate void ScreenPointToRay1Dg(Ray* ray, float* mousePos);
+        [Signature(Signatures.ScreenPointToRay1, DetourName = nameof(ScreenPointToRay1Fn))]
+        private Hook<ScreenPointToRay1Dg> ScreenPointToRay1Hook = null;
+
+        [HandleStatus("ScreenPonitToRay1")]
+        public void ScreenPonitToRay1Status(bool status)
+        {
+            if (status == true)
+                ScreenPointToRay1Hook?.Enable();
+            else
+                ScreenPointToRay1Hook?.Disable();
+        }
+        private void ScreenPointToRay1Fn(Ray* ray, float* mousePos)
+        {
+            if (xivr.cfg.data.motioncontrol)
+            {
+                Matrix4x4 rayPos = rhcMatrix * curViewMatrixWithoutHMDI;
+                Vector3 frwdFar = new Vector3(rayPos.M31, rayPos.M32, rayPos.M33) * -1;
+                ray->Origin = rayPos.Translation;
+                ray->Direction = Vector3.Normalize(frwdFar);
+            }
+            else //if (xivr.cfg.data.hmdPointing)
+            {
+                Matrix4x4 rayPos = hmdMatrix * curViewMatrixWithoutHMDI;
+                Vector3 frwdFar = new Vector3(rayPos.M31, rayPos.M32, rayPos.M33) * -1;
+                ray->Origin = rayPos.Translation;
+                ray->Direction = Vector3.Normalize(frwdFar);
+            }
+            //else
+            //    ScreenPointToRay1Hook!.Original(ray, mousePos);
+        }
+
+
+        //----
+        // MousePointScreenToClient
+        //----
+        private delegate void MousePointScreenToClientDg(UInt64 frameworkInstance, Point* mousePos);
+        [Signature(Signatures.MousePointScreenToClient, DetourName = nameof(MousePointScreenToClientFn))]
+        private Hook<MousePointScreenToClientDg> MousePointScreenToClientHook = null;
+
+        [HandleStatus("MousePointScreenToClient")]
+        public void MousePointScreenToClientStatus(bool status)
+        {
+            if (status == true)
+                MousePointScreenToClientHook?.Enable();
+            else
+                MousePointScreenToClientHook?.Disable();
+        }
+        private void MousePointScreenToClientFn(UInt64 frameworkInstance, Point* mousePos)
+        {
+            *mousePos = virtualMouse;
+            //MousePointScreenToClientHook!.Original(frameworkInstance, mousePos);
+        }
+
+
+
+
+
+        /*
         //----
         // DisableLeftClick
         //----
@@ -1000,7 +1632,6 @@ namespace xivr
 
 
 
-
         //----
         // DisableRightClick
         //----
@@ -1021,8 +1652,7 @@ namespace xivr
         {
             if (b != null && b == a[16]) DisableRightClickHook!.Original(a, b, c);
         }
-
-
+        */
 
 
         //----
@@ -1068,22 +1698,51 @@ namespace xivr
                 DXGIPresentHook?.Disable();
         }
 
-        private void DXGIPresentFn(UInt64 a, UInt64 b)
+        private unsafe void DXGIPresentFn(UInt64 a, UInt64 b)
         {
             if (forceFloatingScreen)
             {
-                Imports.RenderUI(false, false);
+                Imports.RenderUI(false, false, curViewMatrixWithoutHMD, virtualMouse, dalamudMode);
                 DXGIPresentHook!.Original(a, b);
-                Imports.RenderFloatingScreen();
+                Imports.RenderFloatingScreen(virtualMouse, dalamudMode);
                 Imports.RenderVR();
             }
             else
             {
-                Imports.RenderUI(enableVR, enableFloatingHUD);
+                Imports.RenderUI(enableVR, enableFloatingHUD, curViewMatrixWithoutHMD, virtualMouse, dalamudMode);
                 DXGIPresentHook!.Original(a, b);
                 Imports.SetTexture();
                 Imports.RenderVR();
             }
+        }
+
+
+
+        //----
+        // RenderThreadSetRenderTarget
+        //----
+        private delegate void RenderThreadSetRenderTargetDg(UInt64 a, UInt64 b);
+        [Signature(Signatures.RenderThreadSetRenderTarget, DetourName = nameof(RenderThreadSetRenderTargetFn))]
+        private Hook<RenderThreadSetRenderTargetDg>? RenderThreadSetRenderTargetHook = null;
+
+        [HandleStatus("RenderThreadSetRenderTarget")]
+        public void RenderThreadSetRenderTargetStatus(bool status)
+        {
+            if (status == true)
+                RenderThreadSetRenderTargetHook?.Enable();
+            else
+                RenderThreadSetRenderTargetHook?.Disable();
+        }
+
+        private void RenderThreadSetRenderTargetFn(UInt64 a, UInt64 b)
+        {
+            if ((b + 0x8) != 0)
+            {
+                Structures.Texture* rendTrg = *(Structures.Texture**)(b + 0x8);
+                if ((rendTrg->uk5 & 0x90000000) == 0x90000000)
+                    Imports.SetThreadedEye((int)(rendTrg->uk5 - 0x90000000));
+            }
+            RenderThreadSetRenderTargetHook!.Original(a, b);
         }
 
 
@@ -1187,78 +1846,124 @@ namespace xivr
         // This function is also called for ui character stuff so only
         // act on it the first time its run per frame
         //----
+        float CameraHitBoxOffset = 0.0f;
+        float rawCameraHitBoxOffset = -10.0f;
         private void CalculateViewMatrixFn(RawGameCamera* rawGameCamera)
         {
-            //----
-            // Restore the camera to its prooper spot if disabled for collisions in first person
-            //----
-            if (csCameraManager->ActiveCameraIndex == 0 && gameMode == CameraModes.FirstPerson)
+            if (enableVR && frfCalculateViewMatrix == false)
             {
-                rawGameCamera->Y += 10.0f;
-                rawGameCamera->LookAtY += 10.0f;
-            }
-
-            firstPersonCameraHeight = rawGameCamera->Y;
-            rawGameCamera->ViewMatrix = Matrix4x4.Identity;
-            CalculateViewMatrixHook!.Original(rawGameCamera);
-
-            if (csCameraManager->ActiveCameraIndex == 0 && gameMode == CameraModes.FirstPerson)
-            {
-                rawGameCamera->Y -= 10.0f;
-                rawGameCamera->LookAtY -= 10.0f;
-            }
-
-            if (frfCalculateViewMatrix == false)
-            {
+                Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
                 frfCalculateViewMatrix = true;
-                if (enableVR && enableFloatingHUD && forceFloatingScreen == false)
+
+                //----
+                // Restore the camera to its prooper spot if disabled for collisions in first person
+                //----
+                if (csCameraManager->ActiveCameraIndex == 0 && gameMode.Current == CameraModes.FirstPerson)
                 {
-                    Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
-                    if (xivr.cfg.data.horizonLock || gameMode == CameraModes.FirstPerson)
-                        horizonLockMatrix = Matrix4x4.CreateFromAxisAngle(new Vector3(1, 0, 0), rawGameCamera->CurrentVRotation);
-                    horizonLockMatrix.M41 = (-xivr.cfg.data.offsetAmountX / 100);
-                    horizonLockMatrix.M42 = (xivr.cfg.data.offsetAmountY / 100);
-                    horizonLockMatrix.M43 = (xivr.cfg.data.offsetAmountZ / 100);
+                    rawGameCamera->Position.Y += CameraHitBoxOffset;
+                    rawGameCamera->LookAt.Y += CameraHitBoxOffset;
+                }
 
-                    Matrix4x4 invGameViewMatrixAddr;
-                    Vector3 angles = new Vector3();
-                    if (xivr.cfg.data.conloc)
+                rawGameCamera->ViewMatrix = Matrix4x4.Identity;
+                CalculateViewMatrixHook!.Original(rawGameCamera);
+
+                if (csCameraManager->ActiveCameraIndex == 0 && gameMode.Current == CameraModes.FirstPerson)
+                {
+                    rawGameCamera->Position.Y -= CameraHitBoxOffset;
+                    rawGameCamera->LookAt.Y -= CameraHitBoxOffset;
+                }
+                firstPersonCameraHeight = rawGameCamera->Position.Y;
+
+                if (enableFloatingHUD && forceFloatingScreen == false)
+                {
+                    if (camInst->CameraIndex == 1)
                     {
-                        angles = GetAngles(lhcMatrix);
+                        curViewMatrixWithoutHMD = rawGameCamera->ViewMatrix;
+                        Matrix4x4.Invert(curViewMatrixWithoutHMD, out curViewMatrixWithoutHMDI);
+                        if (xivr.cfg.data.swapEyes)
+                            rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD; // hmdMatrixI * eyeOffsetMatrix[swapEyes[curEye]];
+                        else
+                            rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD; // hmdMatrixI * eyeOffsetMatrix[curEye];
                     }
-                    else if (xivr.cfg.data.hmdloc)
-                    {
-                        angles = GetAngles(hmdMatrix);
-                        angles.Y *= -1;
-                    }
-
-                    Matrix4x4 revOnward = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), -angles.Y);
-                    Matrix4x4 zoom = Matrix4x4.CreateTranslation(0, 0, -cameraZoom);
-                    //revOnward = revOnward * zoom;
-                    //Matrix4x4.Invert(revOnward, out revOnward);
-
-                    if ((xivr.cfg.data.conloc == false && xivr.cfg.data.hmdloc == false) || gameMode == CameraModes.ThirdPerson)
-                        revOnward = Matrix4x4.Identity;
-
-                    if (xivr.cfg.data.swapEyes)
-                        hmdMatrix = hmdMatrix * eyeOffsetMatrix[swapEyes[curEye]];
                     else
-                        hmdMatrix = hmdMatrix * eyeOffsetMatrix[curEye];
+                    {
+                        if (xivr.cfg.data.immersiveMovement || isMounted)
+                        {
+                            //rawGameCamera->ViewMatrix = eyeMidPointM;
+                            //Vector3 headCamDiff = neckPosition - rawGameCamera->ViewMatrix.Translation;
+                            //Vector3 frontBackDiff = rawGameCamera->LookAt - rawGameCamera->Position;
+                            //rawGameCamera->ViewMatrix.Translation -= neckPosition;
+                            //rawGameCamera->LookAt = frontBackDiff + neckPosition;
+                            //rawGameCamera->Position = headBoneMatrix.Translation;
+                            //rawGameCamera->LookAt = frontBackDiff + headBoneMatrix.Translation;
+                        }
 
-                    rawGameCamera->ViewMatrix = rawGameCamera->ViewMatrix * horizonLockMatrix * revOnward * hmdMatrix;
+                        if (xivr.cfg.data.horizonLock || gameMode.Current == CameraModes.FirstPerson)
+                        {
+                            horizonLockMatrix = Matrix4x4.CreateFromAxisAngle(new Vector3(1, 0, 0), rawGameCamera->CurrentVRotation);
+                            rawGameCamera->LookAt.Y = rawGameCamera->Position.Y;
+                        }
+                        if (gameMode.Current == CameraModes.FirstPerson)
+                        {
+                            horizonLockMatrix.M42 = (xivr.cfg.data.offsetAmountYFPS / 100);
+                            horizonLockMatrix.M43 = (xivr.cfg.data.offsetAmountZFPS / 100);
+                        }
+                        else
+                        {
+                            horizonLockMatrix.M41 = (-xivr.cfg.data.offsetAmountX / 100);
+                            horizonLockMatrix.M42 = (xivr.cfg.data.offsetAmountY / 100);
+                            horizonLockMatrix.M43 = (xivr.cfg.data.offsetAmountZ / 100);
+                        }
+
+                        Matrix4x4 invGameViewMatrixAddr;
+                        Vector3 angles = new Vector3();
+                        if (xivr.cfg.data.conloc)
+                        {
+                            angles = GetAngles(lhcMatrix);
+                        }
+                        else if (xivr.cfg.data.hmdloc)
+                        {
+                            angles = GetAngles(hmdMatrixI);
+                            angles.Y *= -1;
+                        }
+
+                        Matrix4x4 revOnward = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), -angles.Y);
+                        Matrix4x4 zoom = Matrix4x4.CreateTranslation(0, 0, -cameraZoom);
+                        //revOnward = revOnward * zoom;
+                        //Matrix4x4.Invert(revOnward, out revOnward);
+
+                        if ((xivr.cfg.data.conloc == false && xivr.cfg.data.hmdloc == false) || gameMode.Current == CameraModes.ThirdPerson)
+                            revOnward = Matrix4x4.Identity;
+
+                        curViewMatrixWithoutHMD = rawGameCamera->ViewMatrix * horizonLockMatrix * revOnward;
+                        Matrix4x4.Invert(curViewMatrixWithoutHMD, out curViewMatrixWithoutHMDI);
+
+                        //curViewMatrix = rawGameCamera->ViewMatrix * hmdMatrix;
+                        //PluginLog.Log($"hmdMatrix: {rawGameCamera->X} {rawGameCamera->Y} {rawGameCamera->Z} | {rawGameCamera->ViewMatrix.M41}, {rawGameCamera->ViewMatrix.M42}, {rawGameCamera->ViewMatrix.M43} | {hmdMatrix.M41}, {hmdMatrix.M42},  {hmdMatrix.M43}");
+
+                        if (xivr.cfg.data.swapEyes)
+                            rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD * hmdMatrixI * eyeOffsetMatrix[swapEyes[curEye]];
+                        else
+                            rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD * hmdMatrixI * eyeOffsetMatrix[curEye];
+
+                        //if (!inCutscene && gameMode == CameraModes.FirstPerson)
+                        //    rawGameCamera->ViewMatrix = hmdMatrixI * eyeOffsetMatrix[curEye];
+                    }
                 }
             }
-
-
-            
+            else
+            {
+                rawGameCamera->ViewMatrix = Matrix4x4.Identity;
+                CalculateViewMatrixHook!.Original(rawGameCamera);
+            }
         }
 
 
         //----
         // GetCameraPosition
         //----
-        private delegate void GetCameraPositioDg(GameCamera* gameCamera, IntPtr target, float* vectorPosition, bool swapPerson);
-        private Hook<GetCameraPositioDg>? GetCameraPositionHook = null;
+        private delegate void GetCameraPositionDg(GameCamera* gameCamera, IntPtr target, Vector3* vectorPosition, bool swapPerson);
+        private Hook<GetCameraPositionDg>? GetCameraPositionHook = null;
 
         [HandleStatus("GetCameraPosition")]
         public void GetCameraPositionStatus(bool status)
@@ -1266,25 +1971,30 @@ namespace xivr
             if (status == true)
             {
                 if (GetCameraPositionHook == null)
-                    GetCameraPositionHook = Hook<GetCameraPositioDg>.FromAddress((IntPtr)csCameraManager->GameCamera->CameraBase.vtbl[15], GetCameraPositionFn);
+                    GetCameraPositionHook = Hook<GetCameraPositionDg>.FromAddress((IntPtr)csCameraManager->GameCamera->CameraBase.vtbl[15], GetCameraPositionFn);
                 GetCameraPositionHook?.Enable();
             }
             else
                 GetCameraPositionHook?.Disable();
         }
 
-        private void GetCameraPositionFn(GameCamera* gameCamera, IntPtr target, float* vectorPosition, bool swapPerson)
+        private void GetCameraPositionFn(GameCamera* gameCamera, IntPtr target, Vector3* vectorPosition, bool swapPerson)
         {
             GetCameraPositionHook!.Original(gameCamera, target, vectorPosition, swapPerson);
 
             //----
-            // Hide the camera underground to disable collisions in first person
+            // Move the camera position to disable collisions in first person
             //----
-            if (csCameraManager->ActiveCameraIndex == 0 && gameMode == CameraModes.FirstPerson)
+            if (csCameraManager->ActiveCameraIndex == 0 && gameMode.Current == CameraModes.FirstPerson)
             {
-                vectorPosition[1] -= 10.0f;
+                if (isMounted)
+                    CameraHitBoxOffset = rawCameraHitBoxOffset;
+                else
+                    CameraHitBoxOffset = neckPosition.Y + 0.5f;
+                vectorPosition->Y -= CameraHitBoxOffset;
             }
         }
+
 
 
         //----
@@ -1307,7 +2017,7 @@ namespace xivr
         {
             if (forceFloatingScreen == false)
             {
-                gameMode = gameCamera->Camera.Mode;
+                gameMode.Current = gameCamera->Camera.Mode;
                 Vector3 angles = new Vector3();
 
                 if (xivr.cfg.data.conloc)
@@ -1317,7 +2027,7 @@ namespace xivr
                 }
                 else if (xivr.cfg.data.hmdloc)
                 {
-                    angles = GetAngles(hmdMatrix);
+                    angles = GetAngles(hmdMatrixI);
                     angles.X *= -1;
                 }
 
@@ -1328,21 +2038,25 @@ namespace xivr
                     gameCamera->Camera.HRotationThisFrame2 = 0;
                 if (xivr.cfg.data.verticalLock)
                     gameCamera->Camera.VRotationThisFrame2 = 0;
-                if ((xivr.cfg.data.conloc == false && xivr.cfg.data.hmdloc == false) || gameMode == CameraModes.ThirdPerson)
+                if ((xivr.cfg.data.conloc == false && xivr.cfg.data.hmdloc == false) || gameMode.Current == CameraModes.ThirdPerson)
                 {
                     onwardDiff.Y = 0;
                     onwardDiff.X = 0;
                     onwardDiff.Z = 0;
                 }
 
-                float curH = gameCamera->Camera.CurrentHRotation;
-                float curV = gameCamera->Camera.CurrentVRotation;
                 //gameCamera->Camera.HRotationThisFrame1 += onwardDiff.Y + rotateAmount.X;
                 gameCamera->Camera.HRotationThisFrame2 += onwardDiff.Y + rotateAmount.X;
                 //gameCamera->Camera.VRotationThisFrame1 += onwardDiff.X + rotateAmount.Y;
                 //gameCamera->Camera.VRotationThisFrame2 += onwardDiff.X + rotateAmount.Y;
 
-                if(xivr.cfg.data.vertloc)
+                if (gameMode.Current == CameraModes.FirstPerson)
+                {
+                    gameCamera->Camera.VRotationThisFrame1 = 0.0f;
+                    gameCamera->Camera.VRotationThisFrame2 = 0.0f;
+                }
+
+                if (xivr.cfg.data.vertloc)
                     gameCamera->Camera.VRotationThisFrame2 += onwardDiff.X + rotateAmount.Y;
                 else
                     gameCamera->Camera.VRotationThisFrame2 += rotateAmount.Y;
@@ -1359,6 +2073,28 @@ namespace xivr
             }
         }
 
+
+        //----
+        // CutScene View Matrix
+        //----
+        private delegate void CutsceneViewMatrixDg(UInt64 a, UInt64 b);
+        [Signature(Signatures.CutsceneViewMatrix, DetourName = nameof(CutsceneViewMatrixFn))]
+        private Hook<CutsceneViewMatrixDg>? CutsceneViewMatrixHook = null;
+
+        [HandleStatus("CutsceneViewMatrix")]
+        public void CutsceneViewMatrixStatus(bool status)
+        {
+            if (status == true)
+                CutsceneViewMatrixHook?.Enable();
+            else
+                CutsceneViewMatrixHook?.Disable();
+        }
+
+        private void CutsceneViewMatrixFn(UInt64 a, UInt64 b)
+        {
+            //PluginLog.Log($"{a:X} {b:X}");
+            CutsceneViewMatrixHook!.Original(a, b);
+        }
 
 
         //----
@@ -1420,42 +2156,15 @@ namespace xivr
             bool overrideMatrix = (overrideFromParent.Count == 0) ? false : overrideFromParent.Peek();
             if (enableVR && enableFloatingHUD && overrideMatrix && forceFloatingScreen == false)
             {
-                b = 2.0f;
+                if (xivr.cfg.data.ultrawideshadows == true)
+                    b = 2.54f; // ultra wide
+                else
+                    b = 1.65f;
             }
             Matrix4x4 retVal = CSMakeProjectionMatrixHook!.Original(projMatrix, b, c, d, e);
             return retVal;
         }
 
-
-
-        //----
-        // RenderThreadSetRenderTarget
-        //----
-        private delegate void RenderThreadSetRenderTargetDg(UInt64 a, UInt64 b);
-        [Signature(Signatures.RenderThreadSetRenderTarget, DetourName = nameof(RenderThreadSetRenderTargetFn))]
-        private Hook<RenderThreadSetRenderTargetDg>? RenderThreadSetRenderTargetHook = null;
-
-        [HandleStatus("RenderThreadSetRenderTarget")]
-        public void RenderThreadSetRenderTargetStatus(bool status)
-        {
-            if (status == true)
-                RenderThreadSetRenderTargetHook?.Enable();
-            else
-                RenderThreadSetRenderTargetHook?.Disable();
-        }
-
-        private void RenderThreadSetRenderTargetFn(UInt64 a, UInt64 b)
-        {
-            if ((b + 0x8) != 0)
-            {
-                Structures.Texture* rendTrg = *(Structures.Texture**)(b + 0x8);
-                if (rendTrg->uk5 == 0x990F0F0)
-                    Imports.SetThreadedEye(0);
-                else if (rendTrg->uk5 == 0x990F0F0F)
-                    Imports.SetThreadedEye(1);
-            }
-            RenderThreadSetRenderTargetHook!.Original(a, b);
-        }
 
 
 
@@ -1491,7 +2200,8 @@ namespace xivr
                     //targetAddon->RootNode->SetUseDepthBasedPriority(true);
                 }
 
-                SetupVRTargetCursor();
+                fixed (AtkTextNode** pvrTargetCursor = &vrTargetCursor)
+                    VRCursor.SetupVRTargetCursor(pvrTargetCursor);
 
                 for (byte i = 0; i < NamePlateCount; i++)
                 {
@@ -1517,15 +2227,17 @@ namespace xivr
 
                     TargetSystem* targSys = (TargetSystem*)DalamudApi.TargetManager.Address;
                     if (objectInfo->GameObject == targSys->Target)
-                    {                        
+                    {
                         selectedNamePlate = &a->NamePlateObjectArray[objectInfo->NamePlateIndex];
                         break;
                     }
                 }
 
-                UpdateVRCursorSize();
-                SetVRCursor(selectedNamePlate);
-                
+                fixed (AtkTextNode** pvrTargetCursor = &vrTargetCursor)
+                {
+                    VRCursor.UpdateVRCursorSize(pvrTargetCursor);
+                    VRCursor.SetVRCursor(pvrTargetCursor, selectedNamePlate);
+                }
             }
 
             NamePlateDrawHook!.Original(a);
@@ -1536,7 +2248,7 @@ namespace xivr
         //----
         // RunBoneMath
         //----
-        private delegate UInt64 RunBoneMathDg(hkaPose *a, int b);
+        private delegate UInt64 RunBoneMathDg(hkaPose* a, int b);
         [Signature(Signatures.RunBoneMath, DetourName = nameof(RunBoneMathFn))]
         private Hook<RunBoneMathDg>? RunBoneMathHook = null;
 
@@ -1549,53 +2261,114 @@ namespace xivr
                 RunBoneMathHook?.Disable();
         }
 
-        private UInt64 RunBoneMathFn(hkaPose *pose, int b)
+        private UInt64 RunBoneMathFn(hkaPose* pose, int b)
         {
-            UInt64 retVal = RunBoneMathHook!.Original(pose, b);
-
-            PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
-            if (player == null)
-                return retVal;
-
-            ActorModel* actorModel = player.GetActorModel();
-            if (actorModel == null)
-                return retVal;
-
-            Skeleton* skeleton = actorModel->skeleton;
-            if(skeleton == null)
-                return retVal;
-
-            if (boneLayout.Count == 0)
-                return retVal;
-
-            for (ushort p = 0; p < skeleton->PartialSkeletonCount; p++)
+            UInt64 retVal = 0;
+            if (gameMode.Current == CameraModes.FirstPerson && rawBoneList.ContainsKey((UInt64)pose))
             {
-                hkaPose* playerPose = skeleton->PartialSkeletons[p].GetHavokPose(0);
-                if (playerPose == null) continue;
-
-                if (pose == playerPose)
+                Dictionary<UInt64, Bone> parentList = new Dictionary<UInt64, Bone>();
+                foreach (Bone item in rawBoneList[(UInt64)pose])
                 {
-                    for (int i = 0; i < pose->LocalPose.Length; i++)
+                    if (item.disableParent)
                     {
-                        hkQsTransformf newTransform = pose->LocalPose[i];
-
-                        if (boneLayout[(UInt64)playerPose][i].Key.X == 1) 
-                            newTransform.Translation = boneLayout[(UInt64)playerPose][i].Value.Translation;
-                        if (boneLayout[(UInt64)playerPose][i].Key.Y == 1)
-                            newTransform.Rotation = boneLayout[(UInt64)playerPose][i].Value.Rotation;
-                        if (boneLayout[(UInt64)playerPose][i].Key.Z == 1)
-                            newTransform.Scale = boneLayout[(UInt64)playerPose][i].Value.Scale;
-                        
-                        pose->LocalPose[i] = newTransform;
+                        parentList.Add((UInt64)pose, item);
+                        pose->Skeleton->ParentIndices[item.id] = -1;
                     }
+
+                    hkQsTransformf transform = pose->LocalPose[item.id];
+                    if (item.useReference)
+                        transform = item.reference;
+                    if (item.updatePosition)
+                        transform.Translation = item.transform.Translation;
+                    if (item.updateRotation)
+                        transform.Rotation = item.transform.Rotation;
+                    if (item.updateScale)
+                        transform.Scale = item.transform.Scale;
+                    pose->LocalPose[item.id] = transform;
                 }
+
+                retVal = RunBoneMathHook!.Original(pose, b);
+            }
+            else
+            {
+                retVal = RunBoneMathHook!.Original(pose, b);
             }
 
             return retVal;
         }
 
 
-        /*
+
+        //----
+        // PhysicsBoneUpdate
+        //----
+        private delegate UInt64 PhysicsBoneUpdateDg(UInt64 a, UInt64 b, short c);
+        [Signature(Signatures.PhysicsBoneUpdate, DetourName = nameof(PhysicsBoneUpdateFn))]
+        private Hook<PhysicsBoneUpdateDg>? PhysicsBoneUpdateHook = null;
+
+        [HandleStatus("PhysicsBoneUpdate")]
+        public void PhysicsBoneUpdateStatus(bool status)
+        {
+            if (status == true)
+                PhysicsBoneUpdateHook?.Enable();
+            else
+                PhysicsBoneUpdateHook?.Disable();
+        }
+
+        private UInt64 PhysicsBoneUpdateFn(UInt64 a, UInt64 b, short c)
+        {
+            /*PluginLog.Log($"{a:0} {b:X} {c}");
+            PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
+            if (player != null)
+            {
+                GameObject* bonedObject = (GameObject*)player.Address;
+                if (bonedObject != null)
+                {
+                    Model* model = (Model*)bonedObject->DrawObject;
+                    if (model != null)
+                    {
+                        UInt64 skel = (UInt64)model->skeleton;
+                        if(a == skel)
+                        {
+                            PluginLog.Log("Is Player");
+                        }
+                    }
+                }
+            }*/
+
+            return PhysicsBoneUpdateHook!.Original(a, b, c);
+        }
+
+
+
+
+
+        //----
+        // CalculateHeadAnimation
+        //----
+        private delegate void CalculateHeadAnimationDg(UInt64 a, UInt64* b);
+        [Signature(Signatures.CalculateHeadAnimation, DetourName = nameof(CalculateHeadAnimationFn))]
+        private Hook<CalculateHeadAnimationDg>? CalculateHeadAnimationHook = null;
+
+        [HandleStatus("CalculateHeadAnimation")]
+        public void CalculateHeadAnimationStatus(bool status)
+        {
+            if (status == true)
+                CalculateHeadAnimationHook?.Enable();
+            else
+                CalculateHeadAnimationHook?.Disable();
+        }
+
+        private void CalculateHeadAnimationFn(UInt64 a, UInt64* b)
+        {
+            CalculateHeadAnimationHook!.Original(a, b);
+        }
+
+
+
+
+
+
         //----
         // LoadCharacter
         //----
@@ -1620,9 +2393,10 @@ namespace xivr
                 CharCustData* cData = (CharCustData*)c;
                 CharEquipData* eData = (CharEquipData*)d;
             }
+            //PluginLog.Log($"LoadCharacterFn {a:X} {b:X} {c:X} {d:X} {e:X} {f:X}");
             return LoadCharacterHook!.Original(a, b, c, d, e, f);
         }
-        */
+
 
         //----
         // ChangeEquipment
@@ -1645,11 +2419,15 @@ namespace xivr
             PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
             if (player != null)
             {
-                Character* playerChar = (Character*)player.Address;
-                if ((((UInt64)playerChar) + 0x6D0) == address)
+                Character* bonedCharacter = (Character*)player.Address;
+                if (bonedCharacter != null)
                 {
-                    haveSavedEquipmentSet = true;
-                    currentEquipmentSet.Data[(int)index] = item.Data;
+                    UInt64 equipOffset = (UInt64)(UInt64*)&bonedCharacter->DrawData;
+                    if (equipOffset == address)
+                    {
+                        haveSavedEquipmentSet = true;
+                        currentEquipmentSet.Data[(int)index] = item.Data;
+                    }
                 }
             }
             //PluginLog.Log($"ChangeEquipmentFn {address:X} {index} {item.Id}, {item.Variant}, {item.Dye}");
@@ -1677,18 +2455,22 @@ namespace xivr
             PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
             if (player != null)
             {
-                Character* playerChar = (Character*)player.Address;
-                if ((((UInt64)playerChar) + 0x6D0) == address)
+                Character* bonedCharacter = (Character*)player.Address;
+                if (bonedCharacter != null)
                 {
-                    haveSavedEquipmentSet = true;
-                    currentWeaponSet.Data[(int)index] = item.Data;
+                    UInt64 equipOffset = (UInt64)(UInt64*)&bonedCharacter->DrawData;
+                    if (equipOffset == address)
+                    {
+                        haveSavedEquipmentSet = true;
+                        //currentWeaponSet.Data[(int)index] = item.Data;
+                    }
                 }
             }
             //PluginLog.Log($"ChangeWeaponFn {address:X} {index} | {item.Type}, {item.Id}, {item.Variant}, {item.Dye} | {d}, {e}, {f}, {g}");
             ChangeWeaponHook!.Original(address, index, item, d, e, f, g);
         }
 
-        /*
+
         //----
         // EquipGearsetInternal
         //----
@@ -1710,7 +2492,7 @@ namespace xivr
             //PluginLog.Log($"EquipGearsetInternalFn {address:X} {b} {c}");
             EquipGearsetInternalHook!.Original(address, b, c);
         }
-        */
+
 
 
         //----
@@ -1762,7 +2544,7 @@ namespace xivr
                             if (MathF.Abs(retVal) > 75 && rightHorizontalCenter)
                             {
                                 rightHorizontalCenter = false;
-                                rotateAmount.X -= (xivr.cfg.data.snapRotateAmountX * RadianConversion) * MathF.Sign(retVal);
+                                rotateAmount.X -= (xivr.cfg.data.snapRotateAmountX * Deg2Rad) * MathF.Sign(retVal);
                             }
                             retVal = 0;
                         }
@@ -1772,10 +2554,10 @@ namespace xivr
                         if (MathF.Abs(retVal) >= 0 && MathF.Abs(retVal) < 15) rightVerticalCenter = true;
                         if (xivr.cfg.data.verticalLock && MathF.Abs(leftBumperValue) < 0.5)
                         {
-                            if (MathF.Abs(retVal) > 75 && rightVerticalCenter)
+                            if (MathF.Abs(retVal) > 75 && rightVerticalCenter && gameMode.Current == CameraModes.ThirdPerson)
                             {
                                 rightVerticalCenter = false;
-                                rotateAmount.Y -= (xivr.cfg.data.snapRotateAmountY * RadianConversion) * MathF.Sign(retVal);
+                                rotateAmount.Y -= (xivr.cfg.data.snapRotateAmountY * Deg2Rad) * MathF.Sign(retVal);
                             }
                             retVal = 0;
                         }
@@ -1784,8 +2566,6 @@ namespace xivr
             }
             return retVal;
         }
-
-
 
         //----
         // Controller Input
@@ -1803,68 +2583,198 @@ namespace xivr
                 ControllerInputHook?.Disable();
         }
 
+        float rightTriggerValue = 0;
+        bool leftActive = false;
+        bool rightActive = false;
+        float leftStickOrig = 0;
+        Stopwatch leftStickTimer = new Stopwatch();
+        ChangedTypeBool leftStickTimerHaptic = new ChangedTypeBool();
+        float rightStickOrig = 0;
+        Stopwatch rightStickTimer = new Stopwatch();
+        ChangedTypeBool rightStickTimerHaptic = new ChangedTypeBool();
+
         public void ControllerInputFn(UInt64 a, UInt64 b, uint c)
         {
+            bool runController = true;
+
             UInt64 controllerBase = *(UInt64*)(a + 0x70);
             UInt64 controllerIndex = *(byte*)(a + 0x434);
 
             UInt64 controllerAddress = controllerBase + 0x30 + ((controllerIndex * 0x1E6) * 4);
             XBoxButtonOffsets* offsets = (XBoxButtonOffsets*)((controllerIndex * 0x798) + controllerBase);
 
-            if (xboxStatus.dpad_up.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->dpad_up * 4)) = xboxStatus.dpad_up.value;
-            if (xboxStatus.dpad_down.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->dpad_down * 4)) = xboxStatus.dpad_down.value;
-            if (xboxStatus.dpad_left.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->dpad_left * 4)) = xboxStatus.dpad_left.value;
-            if (xboxStatus.dpad_right.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->dpad_right * 4)) = xboxStatus.dpad_right.value;
-            if (xboxStatus.left_stick_down.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4)) = xboxStatus.left_stick_down.value;
-            if (xboxStatus.left_stick_up.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4)) = xboxStatus.left_stick_up.value;
-            if (xboxStatus.left_stick_left.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4)) = xboxStatus.left_stick_left.value;
-            if (xboxStatus.left_stick_right.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4)) = xboxStatus.left_stick_right.value;
-            if (xboxStatus.right_stick_down.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_down * 4)) = xboxStatus.right_stick_down.value;
-            if (xboxStatus.right_stick_up.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_up * 4)) = xboxStatus.right_stick_up.value;
-            if (xboxStatus.right_stick_left.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_left * 4)) = xboxStatus.right_stick_left.value;
-            if (xboxStatus.right_stick_right.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_right * 4)) = xboxStatus.right_stick_right.value;
-            if (xboxStatus.button_y.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->button_y * 4)) = xboxStatus.button_y.value;
-            if (xboxStatus.button_b.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->button_b * 4)) = xboxStatus.button_b.value;
-            if (xboxStatus.button_a.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->button_a * 4)) = xboxStatus.button_a.value;
-            if (xboxStatus.button_x.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->button_x * 4)) = xboxStatus.button_x.value;
-            if (xboxStatus.left_bumper.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4)) = xboxStatus.left_bumper.value;
-            if (xboxStatus.left_trigger.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->left_trigger * 4)) = xboxStatus.left_trigger.value;
-            if (xboxStatus.left_stick_click.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = xboxStatus.left_stick_click.value;
-            if (xboxStatus.right_bumper.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_bumper * 4)) = xboxStatus.right_bumper.value;
-            if (xboxStatus.right_trigger.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = xboxStatus.right_trigger.value;
-            if (xboxStatus.right_stick_click.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = xboxStatus.right_stick_click.value;
-            if (xboxStatus.start.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->start * 4)) = xboxStatus.start.value;
-            if (xboxStatus.select.active && xivr.cfg.data.motioncontrol)
-                *(float*)(controllerAddress + (UInt64)(offsets->select * 4)) = xboxStatus.select.value;
+            if (xivr.cfg.data.motioncontrol)
+            {
+                if (xboxStatus.dpad_up.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->dpad_up * 4)) = xboxStatus.dpad_up.value;
+                if (xboxStatus.dpad_down.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->dpad_down * 4)) = xboxStatus.dpad_down.value;
+                if (xboxStatus.dpad_left.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->dpad_left * 4)) = xboxStatus.dpad_left.value;
+                if (xboxStatus.dpad_right.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->dpad_right * 4)) = xboxStatus.dpad_right.value;
+                if (xboxStatus.left_stick_down.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4)) = xboxStatus.left_stick_down.value;
+                if (xboxStatus.left_stick_up.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4)) = xboxStatus.left_stick_up.value;
+                if (xboxStatus.left_stick_left.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4)) = xboxStatus.left_stick_left.value;
+                if (xboxStatus.left_stick_right.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4)) = xboxStatus.left_stick_right.value;
+                if (xboxStatus.right_stick_down.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_stick_down * 4)) = xboxStatus.right_stick_down.value;
+                if (xboxStatus.right_stick_up.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_stick_up * 4)) = xboxStatus.right_stick_up.value;
+                if (xboxStatus.right_stick_left.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_stick_left * 4)) = xboxStatus.right_stick_left.value;
+                if (xboxStatus.right_stick_right.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_stick_right * 4)) = xboxStatus.right_stick_right.value;
+                if (xboxStatus.button_y.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->button_y * 4)) = xboxStatus.button_y.value;
+                if (xboxStatus.button_b.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->button_b * 4)) = xboxStatus.button_b.value;
+                if (xboxStatus.button_a.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->button_a * 4)) = xboxStatus.button_a.value;
+                if (xboxStatus.button_x.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->button_x * 4)) = xboxStatus.button_x.value;
+                if (xboxStatus.left_bumper.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4)) = xboxStatus.left_bumper.value;
+                if (xboxStatus.left_trigger.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_trigger * 4)) = xboxStatus.left_trigger.value;
+                if (xboxStatus.left_stick_click.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = xboxStatus.left_stick_click.value;
+                if (xboxStatus.right_bumper.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_bumper * 4)) = xboxStatus.right_bumper.value;
+                if (xboxStatus.right_trigger.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = xboxStatus.right_trigger.value;
+                if (xboxStatus.right_stick_click.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = xboxStatus.right_stick_click.value;
+                if (xboxStatus.start.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->start * 4)) = xboxStatus.start.value;
+                if (xboxStatus.select.active)
+                    *(float*)(controllerAddress + (UInt64)(offsets->select * 4)) = xboxStatus.select.value;
+            }
 
             leftBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4));
+
+            InputAnalogActionData analog = new InputAnalogActionData();
+            InputDigitalActionData digital = new InputDigitalActionData();
+
+            float curTriggerValue = *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4));
+            if ((curTriggerValue > 0.45f && curTriggerValue < 0.95f) && leftActive == false && rightActive == false)
+            {
+                leftActive = true;
+                digital.bState = true;
+                inputLeftClick(analog, digital);
+            }
+            else if ((curTriggerValue < 0.45f || curTriggerValue > 0.95) && leftActive == true)
+            {
+                leftActive = false;
+                digital.bState = false;
+                inputLeftClick(analog, digital);
+            }
+
+            if (curTriggerValue > 0.95f && curTriggerValue <= 1.00f && rightActive == false)
+            {
+                rightActive = true;
+                digital.bState = true;
+                inputRightClick(analog, digital);
+
+            }
+            else if (curTriggerValue < 0.50f && rightActive == true)
+            {
+                rightActive = false;
+                digital.bState = false;
+                inputRightClick(analog, digital);
+            }
+
+            if (housingMode)
+                *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = 0;
+
+
+            //----
+            // Left Stick Pressed
+            //----
+            bool updateLeftAfterInput = false;
+            if (xboxStatus.left_stick_click.active == true && xboxStatus.left_stick_click.ChangedStatus == true)
+            {
+                leftStickOrig = *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4));
+                leftStickTimer = Stopwatch.StartNew();
+                leftStickTimerHaptic.Current = false;
+            }
+            //----
+            // Left Stick Released
+            //----
+            else if (xboxStatus.left_stick_click.active == false && xboxStatus.left_stick_click.ChangedStatus == true)
+            {
+                leftStickTimer.Stop();
+                if (leftStickTimer.ElapsedMilliseconds > 1000)
+                    leftStickAltMode = ((leftStickAltMode) ? false : true);
+                else
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = leftStickOrig;
+
+                updateLeftAfterInput = true;
+                leftStickOrig = 0;
+            }
+
+            if (leftStickTimer.IsRunning)
+            {
+                leftStickTimerHaptic.Current = (leftStickTimer.ElapsedMilliseconds >= 1000);
+                if (leftStickTimerHaptic.Changed == true)
+                    Imports.HapticFeedback(ActionButtonLayout.haptics_left, 0.1f, 100.0f, 50.0f);
+                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = 0;
+            }
+
+
+            //----
+            // Right Stick Pressed
+            //----
+            bool updateRightAfterInput = false;
+            if (xboxStatus.right_stick_click.active == true && xboxStatus.right_stick_click.ChangedStatus == true)
+            {
+                rightStickOrig = *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4));
+                rightStickTimer = Stopwatch.StartNew();
+                rightStickTimerHaptic.Current = false;
+            }
+            //----
+            // Right Stick Released
+            //----
+            else if (xboxStatus.right_stick_click.active == false && xboxStatus.right_stick_click.ChangedStatus == true)
+            {
+                rightStickTimer.Stop();
+                if (rightStickTimer.ElapsedMilliseconds > 1000)
+                    rightStickAltMode = ((rightStickAltMode) ? false : true);
+                else
+                {
+                    if (xboxStatus.right_bumper.active == true)
+                    {
+                        dalamudMode = !dalamudMode;
+                        Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 50.0f, 100.0f);
+                    }
+                    else
+                        *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = rightStickOrig;
+                }
+
+                updateRightAfterInput = true;
+                rightStickOrig = 0;
+            }
+
+            if (rightStickTimer.IsRunning)
+            {
+                rightStickTimerHaptic.Current = (rightStickTimer.ElapsedMilliseconds >= 1000);
+                if (rightStickTimerHaptic.Changed == true)
+                    Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 100.0f, 50.0f);
+                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = 0;
+            }
+
+
             ControllerInputHook!.Original(a, b, c);
+
+            if (updateLeftAfterInput)
+                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = leftStickOrig;
+            if (updateRightAfterInput)
+                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = rightStickOrig;
         }
-
-
 
 
 
@@ -1904,12 +2814,13 @@ namespace xivr
         public static extern void keybd_event(uint bVk, uint bScan, uint dwFlags, uint dwExtraInfo);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
-        public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint cButtons, uint dwExtraInfo);
+        public static extern void mouse_event(uint dwFlags, uint dx, uint dy, int cButtons, int dwExtraInfo);
 
         const int MOUSEEVENTF_LEFTDOWN = 0x02;
         const int MOUSEEVENTF_LEFTUP = 0x04;
         const int MOUSEEVENTF_RIGHTDOWN = 0x08;
         const int MOUSEEVENTF_RIGHTUP = 0x10;
+        const int MOUSEEVENTF_WHEEL = 0x0800;
 
         const int KEYEVENTF_KEYDOWN = 0x0000;
         const int KEYEVENTF_EXTENDEDKEY = 0x0001;
@@ -1936,6 +2847,8 @@ namespace xivr
         public XBoxStatus xboxStatus = new XBoxStatus();
         bool rightHorizontalCenter = false;
         bool rightVerticalCenter = false;
+        bool leftStickAltMode = false;
+        bool rightStickAltMode = false;
 
         //----
         // Movement
@@ -1948,15 +2861,68 @@ namespace xivr
             xboxStatus.left_stick_up.Set();
             xboxStatus.left_stick_down.Set();
 
-            if (analog.x < 0)
-                xboxStatus.left_stick_left.Set(true, MathF.Abs(analog.x));
-            else if (analog.x > 0)
-                xboxStatus.left_stick_right.Set(true, MathF.Abs(analog.x));
+            float deadzone = 0.5f;
+            if (leftStickAltMode)
+            {
+                InputAnalogActionData analogRedirect = new InputAnalogActionData();
+                InputDigitalActionData digitalRedirect = new InputDigitalActionData();
 
-            if (analog.y > 0)
-                xboxStatus.left_stick_up.Set(true, MathF.Abs(analog.y));
-            else if (analog.y < 0)
-                xboxStatus.left_stick_down.Set(true, MathF.Abs(analog.y));
+                if (analog.x > deadzone)
+                {
+                    digitalRedirect.bState = true;
+                    inputXBoxPadRight(analogRedirect, digitalRedirect);
+                }
+                else if (analog.x < deadzone && analog.x >= 0)
+                {
+                    digitalRedirect.bState = false;
+                    inputXBoxPadRight(analogRedirect, digitalRedirect);
+                }
+
+                if (analog.x < -deadzone)
+                {
+                    digitalRedirect.bState = true;
+                    inputXBoxPadLeft(analogRedirect, digitalRedirect);
+                }
+                else if (analog.x > -deadzone && analog.x <= 0)
+                {
+                    digitalRedirect.bState = false;
+                    inputXBoxPadLeft(analogRedirect, digitalRedirect);
+                }
+
+                if (analog.y > deadzone)
+                {
+                    digitalRedirect.bState = true;
+                    inputXBoxPadUp(analogRedirect, digitalRedirect);
+                }
+                else if (analog.y < deadzone && analog.y >= 0)
+                {
+                    digitalRedirect.bState = false;
+                    inputXBoxPadUp(analogRedirect, digitalRedirect);
+                }
+
+                if (analog.y < -deadzone)
+                {
+                    digitalRedirect.bState = true;
+                    inputXBoxPadDown(analogRedirect, digitalRedirect);
+                }
+                else if (analog.y > -deadzone && analog.y <= 0)
+                {
+                    digitalRedirect.bState = false;
+                    inputXBoxPadDown(analogRedirect, digitalRedirect);
+                }
+            }
+            else
+            {
+                if (analog.x < 0)
+                    xboxStatus.left_stick_left.Set(true, MathF.Abs(analog.x));
+                else if (analog.x > 0)
+                    xboxStatus.left_stick_right.Set(true, MathF.Abs(analog.x));
+
+                if (analog.y > 0)
+                    xboxStatus.left_stick_up.Set(true, MathF.Abs(analog.y));
+                else if (analog.y < 0)
+                    xboxStatus.left_stick_down.Set(true, MathF.Abs(analog.y));
+            }
         }
 
         [HandleInputAttribute(ActionButtonLayout.rotation)]
@@ -1972,10 +2938,24 @@ namespace xivr
             else if (analog.x > 0)
                 xboxStatus.right_stick_right.Set(true, MathF.Abs(analog.x));
 
-            if (analog.y > 0)
-                xboxStatus.right_stick_up.Set(true, MathF.Abs(analog.y));
-            else if (analog.y < 0)
-                xboxStatus.right_stick_down.Set(true, MathF.Abs(analog.y));
+            if (rightStickAltMode)
+            {
+                if (analog.y > 0.75f)
+                    mouse_event(MOUSEEVENTF_WHEEL, 0, 0, 90, 0);
+                else if (analog.y > 0.25f)
+                    mouse_event(MOUSEEVENTF_WHEEL, 0, 0, 30, 0);
+                else if (analog.y < -0.75f)
+                    mouse_event(MOUSEEVENTF_WHEEL, 0, 0, -90, 0);
+                else if (analog.y < -0.25f)
+                    mouse_event(MOUSEEVENTF_WHEEL, 0, 0, -30, 0);
+            }
+            else
+            {
+                if (analog.y > 0)
+                    xboxStatus.right_stick_up.Set(true, MathF.Abs(analog.y));
+                else if (analog.y < 0)
+                    xboxStatus.right_stick_down.Set(true, MathF.Abs(analog.y));
+            }
         }
 
         //----
@@ -1985,6 +2965,7 @@ namespace xivr
         [HandleInputAttribute(ActionButtonLayout.leftClick)]
         public void inputLeftClick(InputAnalogActionData analog, InputDigitalActionData digital)
         {
+
             if (digital.bState == true && inputState[ActionButtonLayout.leftClick] == false)
             {
                 inputState[ActionButtonLayout.leftClick] = true;
@@ -2283,213 +3264,126 @@ namespace xivr
         [HandleInputAttribute(ActionButtonLayout.xbox_button_y)]
         public void inputXBoxButtonY(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_button_y] == false)
-            {
-                inputState[ActionButtonLayout.xbox_button_y] = true;
-                xboxStatus.button_y.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_button_y] == true)
-            {
-                inputState[ActionButtonLayout.xbox_button_y] = false;
-                xboxStatus.button_y.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            if (dalamudMode)
+                inputButton11(analog, digital);
+            else
+                xboxStatus.button_y.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_button_x)]
         public void inputXBoxButtonX(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_button_x] == false)
-            {
-                inputState[ActionButtonLayout.xbox_button_x] = true;
-                xboxStatus.button_x.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_button_x] == true)
-            {
-                inputState[ActionButtonLayout.xbox_button_x] = false;
-                xboxStatus.button_x.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            if (dalamudMode)
+                inputButton10(analog, digital);
+            else
+                xboxStatus.button_x.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_button_a)]
         public void inputXBoxButtonA(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_button_a] == false)
-            {
-                inputState[ActionButtonLayout.xbox_button_a] = true;
-                xboxStatus.button_a.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_button_a] == true)
-            {
-                inputState[ActionButtonLayout.xbox_button_a] = false;
-                xboxStatus.button_a.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            if (dalamudMode)
+                inputEscape(analog, digital);
+            else
+                xboxStatus.button_a.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_button_b)]
         public void inputXBoxButtonB(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_button_b] == false)
-            {
-                inputState[ActionButtonLayout.xbox_button_b] = true;
-                xboxStatus.button_b.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_button_b] == true)
-            {
-                inputState[ActionButtonLayout.xbox_button_b] = false;
-                xboxStatus.button_b.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            if (dalamudMode)
+                inputButton12(analog, digital);
+            else
+                xboxStatus.button_b.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_left_trigger)]
         public void inputXBoxLeftTrigger(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            xboxStatus.left_trigger.Set();
-            if (analog.x > 0)
-                xboxStatus.left_trigger.Set(true, analog.x);
+            bool status = (analog.x > 0) ? true : false;
+            xboxStatus.left_trigger.Set(status, analog.x);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_left_bumper)]
         public void inputXBoxLeftBumper(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            xboxStatus.left_bumper.Set();
-            if (analog.x > 0)
-                xboxStatus.left_bumper.Set(true, analog.x);
+            bool status = (analog.x > 0) ? true : false;
+            xboxStatus.left_bumper.Set(status, analog.x);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_left_stick_click)]
         public void inputXBoxLeftStickClick(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_left_stick_click] == false)
-            {
-                inputState[ActionButtonLayout.xbox_left_stick_click] = true;
-                xboxStatus.left_stick_click.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_left_stick_click] == true)
-            {
-                inputState[ActionButtonLayout.xbox_left_stick_click] = false;
-                xboxStatus.left_stick_click.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            xboxStatus.left_stick_click.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_right_trigger)]
         public void inputXBoxRightTrigger(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            xboxStatus.right_trigger.Set();
-            if (analog.x > 0)
-                xboxStatus.right_trigger.Set(true, analog.x);
+            bool status = (analog.x > 0) ? true : false;
+            xboxStatus.right_trigger.Set(status, analog.x);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_right_bumper)]
         public void inputXBoxRightBumper(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            xboxStatus.right_bumper.Set();
-            if (analog.x > 0)
-                xboxStatus.right_bumper.Set(true, analog.x);
+            bool status = (analog.x > 0) ? true : false;
+            xboxStatus.right_bumper.Set(status, analog.x);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_right_stick_click)]
         public void inputXBoxRightStickClick(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_right_stick_click] == false)
-            {
-                inputState[ActionButtonLayout.xbox_right_stick_click] = true;
-                xboxStatus.right_stick_click.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_right_stick_click] == true)
-            {
-                inputState[ActionButtonLayout.xbox_right_stick_click] = false;
-                xboxStatus.right_stick_click.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            xboxStatus.right_stick_click.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_pad_up)]
         public void inputXBoxPadUp(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_pad_up] == false)
-            {
-                inputState[ActionButtonLayout.xbox_pad_up] = true;
-                xboxStatus.dpad_up.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_pad_up] == true)
-            {
-                inputState[ActionButtonLayout.xbox_pad_up] = false;
-                xboxStatus.dpad_up.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            xboxStatus.dpad_up.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_pad_down)]
         public void inputXBoxPadDown(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_pad_down] == false)
-            {
-                inputState[ActionButtonLayout.xbox_pad_down] = true;
-                xboxStatus.dpad_down.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_pad_down] == true)
-            {
-                inputState[ActionButtonLayout.xbox_pad_down] = false;
-                xboxStatus.dpad_down.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            xboxStatus.dpad_down.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_pad_left)]
         public void inputXBoxPadLeft(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_pad_left] == false)
-            {
-                inputState[ActionButtonLayout.xbox_pad_left] = true;
-                xboxStatus.dpad_left.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_pad_left] == true)
-            {
-                inputState[ActionButtonLayout.xbox_pad_left] = false;
-                xboxStatus.dpad_left.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            xboxStatus.dpad_left.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_pad_right)]
         public void inputXBoxPadRight(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_pad_right] == false)
-            {
-                inputState[ActionButtonLayout.xbox_pad_right] = true;
-                xboxStatus.dpad_right.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_pad_right] == true)
-            {
-                inputState[ActionButtonLayout.xbox_pad_right] = false;
-                xboxStatus.dpad_right.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            xboxStatus.dpad_right.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_start)]
         public void inputXBoxStart(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_start] == false)
-            {
-                inputState[ActionButtonLayout.xbox_start] = true;
-                xboxStatus.start.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_start] == true)
-            {
-                inputState[ActionButtonLayout.xbox_start] = false;
-                xboxStatus.start.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            xboxStatus.start.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_select)]
         public void inputXBoxSelect(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-            if (digital.bState == true && inputState[ActionButtonLayout.xbox_select] == false)
-            {
-                inputState[ActionButtonLayout.xbox_select] = true;
-                xboxStatus.select.Set(true, 1.0f);
-            }
-            else if (digital.bState == false && inputState[ActionButtonLayout.xbox_select] == true)
-            {
-                inputState[ActionButtonLayout.xbox_select] = false;
-                xboxStatus.select.Set();
-            }
+            float value = (digital.bState == true) ? 1.0f : 0.0f;
+            xboxStatus.select.Set(digital.bState, value);
         }
     }
 }
+

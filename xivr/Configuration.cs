@@ -40,8 +40,18 @@ namespace xivr
             [MarshalAs(UnmanagedType.U1)] public bool hmdloc;
             [MarshalAs(UnmanagedType.U1)] public bool vertloc;
             [MarshalAs(UnmanagedType.I4)] public int targetCursorSize;
-            [MarshalAs(UnmanagedType.U1)] public bool fpmShowBody;
             [MarshalAs(UnmanagedType.R4)] public float offsetAmountZ;
+            [MarshalAs(UnmanagedType.U1)] public bool uiDepth;
+            [MarshalAs(UnmanagedType.U1)] public bool hmdPointing;
+            [MarshalAs(UnmanagedType.U1)] public bool mode2d;
+            [MarshalAs(UnmanagedType.U1)] public bool asymmetricProjection;
+            [MarshalAs(UnmanagedType.U1)] public bool immersiveMovement;
+            [MarshalAs(UnmanagedType.U1)] public bool immersiveFull;
+            [MarshalAs(UnmanagedType.R4)] public float offsetAmountYFPS;
+            [MarshalAs(UnmanagedType.R4)] public float offsetAmountZFPS;
+            [MarshalAs(UnmanagedType.I4)] public LanguageTypes languageType;
+            [MarshalAs(UnmanagedType.U1)] public bool ultrawideshadows;
+            [MarshalAs(UnmanagedType.U1)] public bool showWeaponInHand;
 
             public cfgData()
             {
@@ -55,10 +65,9 @@ namespace xivr
                 runRecenter = false;
                 offsetAmountX = 0.0f;
                 offsetAmountY = 0.0f;
-                offsetAmountZ = 0.0f;
                 snapRotateAmountX = 45.0f;
                 snapRotateAmountY = 15.0f;
-                uiOffsetZ = 0.0f;
+                uiOffsetZ = 50.0f;
                 uiOffsetScale = 1.0f;
                 conloc = false;
                 swapEyes = false;
@@ -72,7 +81,18 @@ namespace xivr
                 hmdloc = false;
                 vertloc = false;
                 targetCursorSize = 100;
-                fpmShowBody = true;
+                offsetAmountZ = 0.0f;
+                uiDepth = true;
+                hmdPointing = false;
+                mode2d = false;
+                asymmetricProjection = false;
+                immersiveMovement = false;
+                immersiveFull = false;
+                offsetAmountYFPS = 0;
+                offsetAmountZFPS = 0;
+                languageType = LanguageTypes.en;
+                ultrawideshadows = false;
+                showWeaponInHand = false;
             }
         }
 
