@@ -16,5 +16,5 @@ struct stRenderTargetManager
 	/* 0x280 */ unsigned int FarShadowMapWidth;
 	/* 0x284 */ unsigned int FarShadowMapHeight;
 	/* 0x288 */ byte spcr3[0x18];
-	/* 0x290 */ stTexture* RenderTextureArray2[49];
+	/* 0x2A0 */ stTexture* RenderTextureArray2[49];
 };

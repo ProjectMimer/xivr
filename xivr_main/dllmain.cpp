@@ -40,6 +40,7 @@ bool enabled = false;
 int threadedEye = 0;
 bool logging = false;
 int swapEyes[] = { 1, 0 };
+bool useBackBuffer = false;
 
 stConfiguration cfg = stConfiguration();
 simpleVR* svr = new simpleVR(&cfg);
@@ -378,8 +379,18 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 			forceFlush();
 		}
 
+		// 0x1403dc651 | [[ffxiv_dx11.exe+20A9FD0] + 0x3DB8]
+		// sig for 48 8b 0d ?? ?? ?? ?? 8B 81 E4 3F 00 00
 		int worldID = 69;
-		gameRenderTexture = rtManager->RenderTextureArray1[worldID];
+		if (useBackBuffer)
+		{
+			gameRenderTexture = new stTexture();
+			gameRenderTexture->Texture = BackBuffer.pTexture;
+			gameRenderTexture->ShaderResourceView = BackBuffer.pShaderResource;
+			gameRenderTexture->RenderTargetPtr = (unsigned long long)&BackBuffer.pRenderTarget;
+		}
+		else
+			gameRenderTexture = rtManager->RenderTextureArray1[worldID];
 
 		gameRenderRaw.Texture = gameRenderTexture->Texture;
 		gameRenderRaw.ShaderResourceView = gameRenderTexture->ShaderResourceView;
@@ -400,10 +411,6 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		DepthBuffer.creationType = 2;
 		DepthBuffer.pTexture = rtManager->RenderTextureArray1[depthID]->Texture;
 		DepthBuffer.pDepthStencilView = (*(ID3D11DepthStencilView**)rtManager->RenderTextureArray1[depthID]->RenderTargetPtr);
-
-		DepthBuffer.pTexture->GetDesc(&DepthBufferDesc);
-		//DepthBufferDesc.BindFlags |= D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-		DepthBufferDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
 
 		if (cfg.vLog)
 		{
@@ -685,9 +692,13 @@ __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD, XMMAT
 				
 				rend->SetBlendIndex(0);
 				rend->DoRender(viewport, *(ID3D11RenderTargetView**)gameRenderTexture->RenderTargetPtr, uiRenderTarget[0].pShaderResource, DepthBuffer.pDepthStencilView, &matrixSet);
-				rend->SetBlendIndex(2);
-				rend->DoRender(viewport, *(ID3D11RenderTargetView**)gameRenderTexture->RenderTargetPtr, dalamudBuffer.pShaderResource, DepthBuffer.pDepthStencilView, &matrixSet);
 				
+				if (useBackBuffer == false)
+				{
+					rend->SetBlendIndex(2);
+					rend->DoRender(viewport, *(ID3D11RenderTargetView**)gameRenderTexture->RenderTargetPtr, dalamudBuffer.pShaderResource, DepthBuffer.pDepthStencilView, &matrixSet);
+				}
+
 				//device->DeviceContext->CopyResource(BackBufferCopy[threadedEye].pTexture, BackBuffer.pTexture);
 				//float clearColor[] = { 0.0f, 1.0f, 0.0f, 1.0f };
 				//device->DeviceContext->ClearRenderTargetView(BackBuffer.pRenderTarget, clearColor);
@@ -711,8 +722,8 @@ __declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD, XMMAT
 		}
 
 		//rend->DoRender(viewport, BackBuffer.pRenderTarget, gameRenderTexture->ShaderResourceView, DepthBuffer.pDepthStencilView, &matrixSet);
-
-		device->DeviceContext->ClearRenderTargetView(BackBuffer.pRenderTarget, new float[4] { 0.f, 0.f, 0.f, 1.f });
+		if (useBackBuffer == false)
+			device->DeviceContext->ClearRenderTargetView(BackBuffer.pRenderTarget, new float[4] { 0.f, 0.f, 0.f, 1.f });
 	}
 }
 
@@ -743,10 +754,11 @@ __declspec(dllexport) void RenderFloatingScreen(POINT virtualMouse, bool dalamud
 		
 		if (threadedEye == 0)
 			device->DeviceContext->CopyResource(uiRenderTarget[0].pTexture, gameRenderTexture->Texture);
-			
+
 		for (int i = 0; i < 2; i++)
 		{
 			int curEyeView = (cfg.swapEyesUI) ? swapEyes[i] : i;
+			cfg.uiDepth = true;
 
 			matrixSet.projectionMatrix = (XMMATRIX)(svr->GetFramePose(poseType::Projection, curEyeView)._m);
 			matrixSet.eyeMatrix = (cfg.mode2d) ? XMMatrixIdentity() : (XMMATRIX)(svr->GetFramePose(poseType::EyeOffset, curEyeView)._m);
@@ -762,8 +774,12 @@ __declspec(dllexport) void RenderFloatingScreen(POINT virtualMouse, bool dalamud
 
 			rend->SetBlendIndex(1);
 			rend->DoRender(viewport, BackBufferCopy[i].pRenderTarget, uiRenderTarget[0].pShaderResource, DepthBuffer.pDepthStencilView, &matrixSet);
-			rend->SetBlendIndex(2);
-			rend->DoRender(viewport, BackBufferCopy[i].pRenderTarget, dalamudBuffer.pShaderResource, DepthBuffer.pDepthStencilView, &matrixSet);
+			
+			if (useBackBuffer == false)
+			{
+				rend->SetBlendIndex(2);
+				rend->DoRender(viewport, BackBufferCopy[i].pRenderTarget, dalamudBuffer.pShaderResource, DepthBuffer.pDepthStencilView, &matrixSet);
+			}
 
 			device->DeviceContext->CopyResource(DepthBufferCopy[i].pTexture, DepthBuffer.pTexture);
 		}

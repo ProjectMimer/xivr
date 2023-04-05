@@ -765,8 +765,8 @@ namespace xivr
                 Imports.ScreenToClient((IntPtr)screenSettings->hWnd, out currentMouse);
 
                 int mouseMultiplyer = 3;
-                if (dalamudMode)
-                    mouseMultiplyer = 1;
+                //if (dalamudMode)
+                //    mouseMultiplyer = 1;
 
                 //----
                 // Changes anchor from top left corner to middle of screen
@@ -2584,9 +2584,11 @@ namespace xivr
         }
 
         float rightTriggerValue = 0;
-        bool leftActive = false;
-        bool rightActive = false;
+        bool leftClickActive = false;
+        bool rightClickActive = false;
         float leftStickOrig = 0;
+        ChangedTypeBool rightBumperClick = new ChangedTypeBool();
+        ChangedTypeBool rightTriggerClick = new ChangedTypeBool();
         Stopwatch leftStickTimer = new Stopwatch();
         ChangedTypeBool leftStickTimerHaptic = new ChangedTypeBool();
         float rightStickOrig = 0;
@@ -2655,125 +2657,139 @@ namespace xivr
                     *(float*)(controllerAddress + (UInt64)(offsets->select * 4)) = xboxStatus.select.value;
             }
 
-            leftBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4));
-
-            InputAnalogActionData analog = new InputAnalogActionData();
-            InputDigitalActionData digital = new InputDigitalActionData();
-
-            float curTriggerValue = *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4));
-            if ((curTriggerValue > 0.45f && curTriggerValue < 0.95f) && leftActive == false && rightActive == false)
+            if (xivr.cfg.data.motioncontrol)
             {
-                leftActive = true;
-                digital.bState = true;
-                inputLeftClick(analog, digital);
-            }
-            else if ((curTriggerValue < 0.45f || curTriggerValue > 0.95) && leftActive == true)
-            {
-                leftActive = false;
-                digital.bState = false;
-                inputLeftClick(analog, digital);
-            }
+                leftBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4));
+                float curRightTriggerValue = *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4));
+                float curRightBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->right_bumper * 4));
 
-            if (curTriggerValue > 0.95f && curTriggerValue <= 1.00f && rightActive == false)
-            {
-                rightActive = true;
-                digital.bState = true;
-                inputRightClick(analog, digital);
+                rightTriggerClick.Current = (curRightTriggerValue > 0.75f);
+                rightBumperClick.Current = (curRightBumperValue > 0.75f);
 
-            }
-            else if (curTriggerValue < 0.50f && rightActive == true)
-            {
-                rightActive = false;
-                digital.bState = false;
-                inputRightClick(analog, digital);
-            }
+                InputAnalogActionData analog = new InputAnalogActionData();
+                InputDigitalActionData digital = new InputDigitalActionData();
 
-            if (housingMode)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = 0;
-
-
-            //----
-            // Left Stick Pressed
-            //----
-            bool updateLeftAfterInput = false;
-            if (xboxStatus.left_stick_click.active == true && xboxStatus.left_stick_click.ChangedStatus == true)
-            {
-                leftStickOrig = *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4));
-                leftStickTimer = Stopwatch.StartNew();
-                leftStickTimerHaptic.Current = false;
-            }
-            //----
-            // Left Stick Released
-            //----
-            else if (xboxStatus.left_stick_click.active == false && xboxStatus.left_stick_click.ChangedStatus == true)
-            {
-                leftStickTimer.Stop();
-                if (leftStickTimer.ElapsedMilliseconds > 1000)
-                    leftStickAltMode = ((leftStickAltMode) ? false : true);
-                else
-                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = leftStickOrig;
-
-                updateLeftAfterInput = true;
-                leftStickOrig = 0;
-            }
-
-            if (leftStickTimer.IsRunning)
-            {
-                leftStickTimerHaptic.Current = (leftStickTimer.ElapsedMilliseconds >= 1000);
-                if (leftStickTimerHaptic.Changed == true)
-                    Imports.HapticFeedback(ActionButtonLayout.haptics_left, 0.1f, 100.0f, 50.0f);
-                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = 0;
-            }
-
-
-            //----
-            // Right Stick Pressed
-            //----
-            bool updateRightAfterInput = false;
-            if (xboxStatus.right_stick_click.active == true && xboxStatus.right_stick_click.ChangedStatus == true)
-            {
-                rightStickOrig = *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4));
-                rightStickTimer = Stopwatch.StartNew();
-                rightStickTimerHaptic.Current = false;
-            }
-            //----
-            // Right Stick Released
-            //----
-            else if (xboxStatus.right_stick_click.active == false && xboxStatus.right_stick_click.ChangedStatus == true)
-            {
-                rightStickTimer.Stop();
-                if (rightStickTimer.ElapsedMilliseconds > 1000)
-                    rightStickAltMode = ((rightStickAltMode) ? false : true);
-                else
+                //----
+                // Right Click if trigger and bumper pressed
+                //----
+                if (leftClickActive == false && rightTriggerClick.Current == true && rightTriggerClick.Changed == true && rightBumperClick.Current == true)
                 {
-                    if (xboxStatus.right_bumper.active == true)
-                    {
-                        dalamudMode = !dalamudMode;
-                        Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 50.0f, 100.0f);
-                    }
-                    else
-                        *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = rightStickOrig;
+                    rightClickActive = true;
+                    digital.bState = true;
+                    inputRightClick(analog, digital);
+                }
+                else if (leftClickActive == false && rightTriggerClick.Current == false && rightTriggerClick.Changed == true && rightBumperClick.Current == true)
+                {
+                    rightClickActive = false;
+                    digital.bState = false;
+                    inputRightClick(analog, digital);
                 }
 
-                updateRightAfterInput = true;
-                rightStickOrig = 0;
-            }
+                //----
+                // Left Click if only trigger pressed
+                //----
+                if (rightClickActive == false && rightTriggerClick.Current == true && rightTriggerClick.Changed == true && rightBumperClick.Current == false)
+                {
+                    leftClickActive = true;
+                    digital.bState = true;
+                    inputLeftClick(analog, digital);
+                }
+                else if (rightClickActive == false && rightTriggerClick.Current == false && rightTriggerClick.Changed == true && rightBumperClick.Current == false)
+                {
+                    leftClickActive = false;
+                    digital.bState = false;
+                    inputLeftClick(analog, digital);
+                }
 
-            if (rightStickTimer.IsRunning)
+                if (housingMode)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = 0;
+
+                //----
+                // Left Stick Pressed
+                //----
+                bool updateLeftAfterInput = false;
+                if (xboxStatus.left_stick_click.active == true && xboxStatus.left_stick_click.ChangedStatus == true)
+                {
+                    leftStickOrig = *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4));
+                    leftStickTimer = Stopwatch.StartNew();
+                    leftStickTimerHaptic.Current = false;
+                }
+                //----
+                // Left Stick Released
+                //----
+                else if (xboxStatus.left_stick_click.active == false && xboxStatus.left_stick_click.ChangedStatus == true)
+                {
+                    leftStickTimer.Stop();
+                    if (leftStickTimer.ElapsedMilliseconds > 1000)
+                        leftStickAltMode = ((leftStickAltMode) ? false : true);
+                    else
+                        *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = leftStickOrig;
+
+                    updateLeftAfterInput = true;
+                    leftStickOrig = 0;
+                }
+
+                if (leftStickTimer.IsRunning)
+                {
+                    leftStickTimerHaptic.Current = (leftStickTimer.ElapsedMilliseconds >= 1000);
+                    if (leftStickTimerHaptic.Changed == true)
+                        Imports.HapticFeedback(ActionButtonLayout.haptics_left, 0.1f, 100.0f, 50.0f);
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = 0;
+                }
+
+
+                //----
+                // Right Stick Pressed
+                //----
+                bool updateRightAfterInput = false;
+                if (xboxStatus.right_stick_click.active == true && xboxStatus.right_stick_click.ChangedStatus == true)
+                {
+                    rightStickOrig = *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4));
+                    rightStickTimer = Stopwatch.StartNew();
+                    rightStickTimerHaptic.Current = false;
+                }
+                //----
+                // Right Stick Released
+                //----
+                else if (xboxStatus.right_stick_click.active == false && xboxStatus.right_stick_click.ChangedStatus == true)
+                {
+                    rightStickTimer.Stop();
+                    if (rightStickTimer.ElapsedMilliseconds > 1000)
+                        rightStickAltMode = ((rightStickAltMode) ? false : true);
+                    else
+                    {
+                        if (xboxStatus.right_bumper.active == true)
+                        {
+                            dalamudMode = !dalamudMode;
+                            Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 50.0f, 100.0f);
+                        }
+                        else
+                            *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = rightStickOrig;
+                    }
+
+                    updateRightAfterInput = true;
+                    rightStickOrig = 0;
+                }
+
+                if (rightStickTimer.IsRunning)
+                {
+                    rightStickTimerHaptic.Current = (rightStickTimer.ElapsedMilliseconds >= 1000);
+                    if (rightStickTimerHaptic.Changed == true)
+                        Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 100.0f, 50.0f);
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = 0;
+                }
+
+                ControllerInputHook!.Original(a, b, c);
+
+                if (updateLeftAfterInput)
+                    *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = leftStickOrig;
+                if (updateRightAfterInput)
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = rightStickOrig;
+            }
+            else
             {
-                rightStickTimerHaptic.Current = (rightStickTimer.ElapsedMilliseconds >= 1000);
-                if (rightStickTimerHaptic.Changed == true)
-                    Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 100.0f, 50.0f);
-                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = 0;
+                ControllerInputHook!.Original(a, b, c);
             }
-
-
-            ControllerInputHook!.Original(a, b, c);
-
-            if (updateLeftAfterInput)
-                *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = leftStickOrig;
-            if (updateRightAfterInput)
-                *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = rightStickOrig;
         }
 
 

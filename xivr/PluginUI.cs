@@ -1,7 +1,11 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System;
+using System.Numerics;
 using Dalamud.Interface;
 using ImGuiNET;
 using xivr.Structures;
+using static System.Net.WebRequestMethods;
+using System.Net.NetworkInformation;
 
 namespace xivr
 {
@@ -17,8 +21,12 @@ namespace xivr
             ImGui.SetNextWindowSize(new Vector2(370, 800) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
             ImGui.SetNextWindowSizeConstraints(new Vector2(370, 800) * ImGuiHelpers.GlobalScale, new Vector2(9999));
             //if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+            
+
             if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             {
+                ShowKofi(lngOptions);
+
                 ImGui.BeginChild("VR", new Vector2(350, 200) * ImGuiHelpers.GlobalScale, true);
 
                 if (ImGui.Checkbox(lngOptions.isEnabled_Line1, ref xivr.cfg.data.isEnabled))
@@ -160,6 +168,22 @@ namespace xivr
             if (ImGui.Checkbox(lngOptions.asymmetricProjection_Line1, ref xivr.cfg.data.asymmetricProjection))
                 xivr.Plugin.doUpdate = true;
 
+            ImGui.EndChild();
+        }
+
+
+        public static void ShowKofi(uiOptionStrings lngOptions)
+        {
+            ImGui.BeginChild("Support", new Vector2(350, 50) * ImGuiHelpers.GlobalScale, true);
+
+            ImGui.PushStyleColor(ImGuiCol.Button, 0xFF000000 | 0x005E5BFF);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0xDD000000 | 0x005E5BFF);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xAA000000 | 0x005E5BFF);
+            if (ImGui.Button(lngOptions.support_Line1))
+            {
+                Process.Start(new ProcessStartInfo { FileName = "https://ko-fi.com/projectmimer", UseShellExecute = true });
+            }
+            ImGui.PopStyleColor(3);
             ImGui.EndChild();
         }
     }

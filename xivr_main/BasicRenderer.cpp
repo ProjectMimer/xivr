@@ -631,10 +631,9 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout screenLayout, XMMATRIX rayMatr
 			lineData[11] = 1.0f;
 			lineData[12] = 1.0f;
 
-			controllerAtUI = true;
-
 			if (inputRayType == poseType::RightHand)
 			{
+				controllerAtUI = true;
 				needsRecenter = true;
 				SetMousePosition(screenLayout.hwnd, (int)intersection.m128_f32[0], (int)intersection.m128_f32[1]);
 			}
@@ -649,8 +648,19 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout screenLayout, XMMATRIX rayMatr
 				SetMousePosition(screenLayout.hwnd, (int)intersection.m128_f32[0], (int)intersection.m128_f32[1]);
 			}
 		}
-
-		rayLine.MapResource(&lineData[0], (int)lineData.size() * sizeof(float));
+		if (inputRayType == poseType::RightHand)
+		{
+			rayLine.MapResource(&lineData[0], (int)lineData.size() * sizeof(float));
+		}
+		else
+		{
+			lineData =
+			{
+				0, 0, 0,	0.0f, 0.0f, 0.0f, 0.0f,
+				0, 0, 0,	0.0f, 0.0f, 0.0f, 0.0f,
+			};
+			rayLine.MapResource(&lineData[0], (int)lineData.size() * sizeof(float));
+		}
 	}
 	else
 	{
