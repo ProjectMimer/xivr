@@ -46,13 +46,16 @@ XIVR is currently in an **alpha state**. It will be released as a minimum viable
 
 **• Changelog •**
 
-v0.0.0.2 released now installing via the repo should work again
+**v0.0.0.2** released now installing via the repo should work again
 
-v0.0.0.3 released now the UI should no longer hide randomly, if you have downloaded a previous version please delete \AppData\Roaming\XIVLauncher\pluginConfigs\ xivr.json should the error have been saved in the file
 
-v0.0.0.4 released, "band aid edition" Fix cross-eyed world via `/xivr swapeyes` and ui via `/xivr swapeyesui`  If your normal (non vr) controller isnt working please try `/xivr motcontoggle`
+**v0.0.0.3** released now the UI should no longer hide randomly, if you have downloaded a previous version please delete \AppData\Roaming\XIVLauncher\pluginConfigs\ xivr.json should the error have been saved in the file
 
-v0.0.5 experimental release
+
+**v0.0.0.4** released, "band aid edition" Fix cross-eyed world via `/xivr swapeyes` and ui via `/xivr swapeyesui`  If your normal (non vr) controller isnt working please try `/xivr motcontoggle`
+
+
+**v0.0.0.5** experimental release
 
 Fixed floating UI scaling curvature bug
 
@@ -63,14 +66,14 @@ Changes to loading order if it crashed previously please try this and report bac
 If started from the title screen settings will auto apply if started from the game please run `/xivr loadcon` after starting vr
 
 
-v0.0.0.6
+**v0.0.0.6**
 
 Fixed controller zoom not working
 
 Updated to new game version
 
 
-v0.0.0.8
+**v0.0.0.8**
 
 Implemented automatic resolution resize (wont work on first load because it needs to fetch headset data once from Steam VR eye resolution)
 
@@ -81,7 +84,7 @@ Added multiple new menu entries for existing chat commands
 Changed loading order, might crash more or less please report back 
 
 
-v0.0.0.9
+**v0.0.0.9**
 
 Fixed Dresser Camera
 
@@ -94,7 +97,7 @@ Added verbose logging, logs are saved to dalamud.log in the XIVLauncher folder
 Less Crashing
 
 
-v0.0.0.10 
+**v0.0.0.10**
 
 Support for 6.3
 
@@ -105,7 +108,7 @@ Added vertical support for first person locomotion, point or look in the directi
 Fixed unintended first person camera behavior 
 
 
-v0.0.1.0 HANDTRACKING UPDATE
+**v0.0.1.0** HANDTRACKING UPDATE
 
 Disabled culling in first person
 
@@ -126,7 +129,6 @@ Added in world target arrow (by @AJBats)
 Added size slider for target arrow (by @AJBats)
 
 
-
 Known Issues
 
 First person camera location might be off, please use the offset sliders
@@ -140,7 +142,7 @@ Gear polygon stretching from hand
 Its hard to target the exits of player houses in first person
 
 
-v0.0.3.0 Now actually playable edition
+**v0.0.3.0** Now actually playable edition
 
 UI
 
