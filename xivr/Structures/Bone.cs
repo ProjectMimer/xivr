@@ -17,7 +17,7 @@ namespace xivr.Structures
         public hkQsTransformf reference = new hkQsTransformf();
         public hkQsTransformf localBase = new hkQsTransformf();
         public Bone? parent = null;
-        public Dictionary<BoneList, Bone> children = new Dictionary<BoneList, Bone>();
+        public Dictionary<int, Bone> children = new Dictionary<int, Bone>();
         public Matrix4x4 boneMatrix = Matrix4x4.Identity;
         public Matrix4x4 boneMatrixI = Matrix4x4.Identity;
         public Matrix4x4 localMatrix = Matrix4x4.Identity;
@@ -43,7 +43,7 @@ namespace xivr.Structures
             isSet = true;
             parent = pBone;
             if (parent != null)
-                parent.children.Add(boneKey, this);
+                parent.children.Add(kId, this);
             CalculateMatrix();
         }
 
@@ -65,7 +65,7 @@ namespace xivr.Structures
             localBase.Scale = transform.Scale;
             
             if (runChild == true)
-                foreach (KeyValuePair<BoneList, Bone> child in children)
+                foreach (KeyValuePair<int, Bone> child in children)
                     child.Value.CalculateMatrix(runChild);
         }
 
@@ -79,7 +79,7 @@ namespace xivr.Structures
             CalculateMatrix();
 
             if (runChild == true)
-                foreach (KeyValuePair<BoneList, Bone> child in children)
+                foreach (KeyValuePair<int, Bone> child in children)
                     child.Value.SetTransformFromLocalBase(runChild);
         }
 
@@ -103,7 +103,7 @@ namespace xivr.Structures
         public void InverseChildren()
         {
             Inverse();
-            foreach (KeyValuePair<BoneList, Bone> child in children)
+            foreach (KeyValuePair<int, Bone> child in children)
                 child.Value.InverseChildren();
         }
 
@@ -121,7 +121,7 @@ namespace xivr.Structures
                 CalculateMatrix();
 
             if (runChild == true)
-                foreach (KeyValuePair<BoneList, Bone> child in children)
+                foreach (KeyValuePair<int, Bone> child in children)
                     child.Value.SetReference(calculateMatrix, runChild);
         }
 
@@ -137,7 +137,7 @@ namespace xivr.Structures
                 CalculateMatrix();
 
             if (runChild == true)
-                foreach (KeyValuePair<BoneList, Bone> child in children)
+                foreach (KeyValuePair<int, Bone> child in children)
                     child.Value.SetTransform(location, runChild);
         }
 
@@ -152,7 +152,7 @@ namespace xivr.Structures
             transform.Scale = location.GetScale().Convert();
 
             if (runChild == true)
-                foreach (KeyValuePair<BoneList, Bone> child in children)
+                foreach (KeyValuePair<int, Bone> child in children)
                     child.Value.SetTransform(location, runChild);
         }
 
@@ -162,7 +162,7 @@ namespace xivr.Structures
             transform.Scale = scale.Convert();
 
             if (runChild == true)
-                foreach (KeyValuePair<BoneList, Bone> child in children)
+                foreach (KeyValuePair<int, Bone> child in children)
                     child.Value.SetScale(scale, runChild);
         }
 
@@ -179,7 +179,7 @@ namespace xivr.Structures
             string spacer = new String(' ', indent * 2);
             PluginLog.Log($"{spacer} {parentId} | {(BoneListEn)boneKey} | {transform.Translation.X} {transform.Translation.Y} {transform.Translation.Z} | {transform.Rotation.X} {transform.Rotation.Y} {transform.Rotation.Z} {transform.Rotation.W}");
             if (runChild == true)
-                foreach (KeyValuePair<BoneList, Bone> child in children)
+                foreach (KeyValuePair<int, Bone> child in children)
                     child.Value.Output(indent + 1, runChild);
         }
 

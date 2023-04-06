@@ -3,7 +3,7 @@
   "Name": "XIVR - VR Mod",
   "InternalName": "xivr",
   "Punchline": "Mod to allow VR",
-  "AssemblyVersion": "0.0.3.1",
+  "AssemblyVersion": "0.0.3.2",
   "Description": "Mod to allow vr. Requires SteamVR Not the steam version of the game\n** Requires SteamVR **\nPlease click the globe icon for detailed instructions.\nChat/FAQ: flat2vr.com",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/ProjectMimer/xivr",

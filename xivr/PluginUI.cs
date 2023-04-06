@@ -18,13 +18,15 @@ namespace xivr
             if (!isVisible)
                 return;
 
-            ImGui.SetNextWindowSize(new Vector2(370, 800) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
-            ImGui.SetNextWindowSizeConstraints(new Vector2(370, 800) * ImGuiHelpers.GlobalScale, new Vector2(9999));
+            ImGui.SetNextWindowSize(new Vector2(750, 700) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowSizeConstraints(new Vector2(750, 700) * ImGuiHelpers.GlobalScale, new Vector2(9999));
             //if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             
 
             if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             {
+                ImGui.BeginChild("Outer", new Vector2(730, 680) * ImGuiHelpers.GlobalScale, true);
+
                 ShowKofi(lngOptions);
 
                 ImGui.BeginChild("VR", new Vector2(350, 200) * ImGuiHelpers.GlobalScale, true);
@@ -49,7 +51,9 @@ namespace xivr
 
                 ImGui.EndChild();
 
-                ImGui.BeginChild("Misc", new Vector2(350, 300) * ImGuiHelpers.GlobalScale, true);
+                ImGui.SameLine();
+
+                ImGui.BeginChild("Misc", new Vector2(350, 200) * ImGuiHelpers.GlobalScale, true);
 
                 if (ImGui.Checkbox(lngOptions.motioncontrol_Line1, ref xivr.cfg.data.motioncontrol))
                 {
@@ -78,7 +82,10 @@ namespace xivr
                 ImGui.EndChild();
 
                 DrawLocks(lngOptions);
+                ImGui.SameLine();
                 DrawUISetings(lngOptions);
+
+                ImGui.EndChild();
 
                 if (xivr.Plugin.doUpdate == true)
                     xivr.cfg.Save();

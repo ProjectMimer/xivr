@@ -14,6 +14,9 @@ using Dalamud.Interface;
 using Dalamud.Game.ClientState.Conditions;
 using System.Collections.Generic;
 using xivr.Structures;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using static xivr.Configuration;
 
 namespace xivr
 {
@@ -49,6 +52,8 @@ namespace xivr
 
 
                 DalamudApi.Framework.Update += Update;
+                DalamudApi.ClientState.Login += OnLogin;
+                DalamudApi.ClientState.Logout += OnLogout;
                 DalamudApi.PluginInterface.UiBuilder.Draw += Draw;
                 DalamudApi.PluginInterface.UiBuilder.OpenConfigUi += ToggleConfig;
 
@@ -258,6 +263,13 @@ namespace xivr
                         cfg.Save(); doUpdate = true;
                         break;
                     }
+                case "resetconfig":
+                    {
+                        cfg.data = new cfgData();
+                        cfg.Save();
+                        doUpdate = true;
+                        break;
+                    }
             }
         }
 
@@ -340,6 +352,17 @@ namespace xivr
             }
         }
 
+        private void OnLogin(object? sender, EventArgs e)
+        {
+            if (pluginReady)
+                xivr_hooks.OnLogin(sender, e);
+        }
+        private void OnLogout(object? sender, EventArgs e)
+        {
+            if (pluginReady)
+                xivr_hooks.OnLogout(sender, e);
+        }
+
         private void Draw()
         {
             if (pluginReady)
@@ -364,6 +387,8 @@ namespace xivr
             }
             DalamudApi.TitleScreenMenu.RemoveEntry(xivrMenuEntry);
             DalamudApi.Framework.Update -= Update;
+            DalamudApi.ClientState.Login -= OnLogin;
+            DalamudApi.ClientState.Logout -= OnLogout;
             DalamudApi.PluginInterface.UiBuilder.Draw -= Draw;
             DalamudApi.PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
             DalamudApi.Dispose();

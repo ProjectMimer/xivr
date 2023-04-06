@@ -85,7 +85,7 @@ namespace xivr
                 uiDepth = true;
                 hmdPointing = false;
                 mode2d = false;
-                asymmetricProjection = false;
+                asymmetricProjection = true;
                 immersiveMovement = false;
                 immersiveFull = false;
                 offsetAmountYFPS = 0;

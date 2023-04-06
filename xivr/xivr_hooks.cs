@@ -299,12 +299,7 @@ namespace xivr
                 SetFunctionHandles();
                 SetInputHandles();
 
-                SavedSettings[ConfigOption.MouseOpeLimit] = ConfigModule.Instance()->GetIntValue(ConfigOption.MouseOpeLimit);
-                SavedSettings[ConfigOption.ObjectBorderingType] = ConfigModule.Instance()->GetIntValue(ConfigOption.ObjectBorderingType);
-                ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 0);
-
-                controllerCallback = (buttonId, analog, digital) =>
+                 controllerCallback = (buttonId, analog, digital) =>
                 {
                     if (inputList.ContainsKey(buttonId))
                         inputList[buttonId](analog, digital);
@@ -383,6 +378,8 @@ namespace xivr
                 gameProjectionMatrix[1].M43 *= -1;
                 SetRenderingMode();
 
+                SavedSettings[ConfigOption.MouseOpeLimit] = ConfigModule.Instance()->GetIntValue(ConfigOption.MouseOpeLimit);
+                ConfigModule.Instance()->SetOption(ConfigOption.Gamma, 0);
                 ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
                 ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 1);
 
@@ -441,17 +438,15 @@ namespace xivr
                 foreach (KeyValuePair<ActionButtonLayout, HandleInputDelegate> input in inputList)
                     input.Value(analog, digital);
 
-
                 gameProjectionMatrix[0] = Matrix4x4.Identity;
                 gameProjectionMatrix[1] = Matrix4x4.Identity;
                 eyeOffsetMatrix[0] = Matrix4x4.Identity;
                 eyeOffsetMatrix[1] = Matrix4x4.Identity;
                 curRenderMode = RenderModes.None;
 
+                ConfigModule.Instance()->SetOption(ConfigOption.Gamma, 0);
                 ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.ObjectBorderingType, SavedSettings[ConfigOption.ObjectBorderingType]);
-
+                ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, SavedSettings[ConfigOption.MouseOpeLimit]);
 
 
                 //----
@@ -844,18 +839,19 @@ namespace xivr
                                         string boneName = objPose->Skeleton->Bones[i].Name.String;
                                         short parentId = objPose->Skeleton->ParentIndices[i];
 
-                                        if (!boneNameToEnum.ContainsKey(boneName))
+                                        BoneList boneKey = boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._unknown_);
+                                        if (boneKey == BoneList._unknown_)
                                         {
                                             if (!reportedBones.ContainsKey(boneName))
                                             {
                                                 PluginLog.Log($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
                                                 reportedBones.Add(boneName, true);
                                             }
-                                            continue;
+                                            boneName = "_unknown_";
                                         }
+                                        else
+                                            boneLayout[objPose64][boneKey] = i;
 
-                                        BoneList boneKey = boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._root_);
-                                        boneLayout[objPose64].Add(boneKey, i);
                                         //PluginLog.Log($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
 
                                         if (parentId < 0)
@@ -908,7 +904,7 @@ namespace xivr
                                         //outputBonesOnce = true;
                                         //boneArray[0].SetReferenceChildren();
                                         //boneArray[0].Output();
-                                        //boneArray[0].Output();
+                                        //boneArray[0].Output(0, true);
                                     }
                                     //rawBoneList[objPose64][0].ScaleAll(rawBoneList[objPose64], 0, 0, 0);
 
@@ -1152,7 +1148,7 @@ namespace xivr
 
 
                 }
-
+                /*
                 if (gameMode.Current == CameraModes.FirstPerson)
                 {
                     //----
@@ -1181,10 +1177,11 @@ namespace xivr
                             if (model == null)
                                 continue;
 
-                            //DrawBones(model->skeleton);
+                            DrawBones(model->skeleton);
                         }
                     }
                 }
+                */
                 /*
                 //----
                 // Detects if over a ui element by checking inputdata isnt 0
@@ -1207,48 +1204,44 @@ namespace xivr
                 mouseoverTarget.Current = (targetSystem->MouseOverTarget != null);
                 if (mouseoverTarget.Current && mouseoverTarget.Changed)
                     Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 1.0f, 0.25f);
+
+                //----
+                // Saves the target arrow alpha
+                //----
+                if (targetAddonAlpha == 0)
+                {
+                    AtkUnitBase* targetAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_TargetCursor", 1);
+                    if (targetAddon != null)
+                        targetAddonAlpha = targetAddon->Alpha;
+                }
+
+                AtkUnitBase* CharSelectAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaSelectTitle", 1);
+                AtkUnitBase* CharMakeAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaMakeTitle", 1);
+                AtkUnitBase* HousingGoods = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("HousingGoods", 1);
+
+                if (CharSelectAddon == null && CharMakeAddon == null && DalamudApi.ClientState.LocalPlayer == null)
+                    timer = 100;
+
+                if (timer > 0)
+                {
+                    forceFloatingScreen = true;
+                    timer--;
+                }
+                else if (timer == 0)
+                {
+                    timer = -1;
+                }
+
+
+                if (HousingGoods != null)
+                    housingMode = true;
+
+                if (curRenderMode == RenderModes.TwoD)
+                    curEye = 0;
+                else
+                    curEye = nextEye[curEye];
             }
 
-
-            //----
-            // Saves the target arrow alpha
-            //----
-            if (targetAddonAlpha == 0)
-            {
-                AtkUnitBase* targetAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_TargetCursor", 1);
-                if (targetAddon != null)
-                    targetAddonAlpha = targetAddon->Alpha;
-            }
-
-            AtkUnitBase* CharSelectAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaSelectTitle", 1);
-            AtkUnitBase* CharMakeAddon = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("_CharaMakeTitle", 1);
-            AtkUnitBase* HousingGoods = (AtkUnitBase*)DalamudApi.GameGui.GetAddonByName("HousingGoods", 1);
-
-            if (CharSelectAddon == null && CharMakeAddon == null && DalamudApi.ClientState.LocalPlayer == null)
-                timer = 100;
-
-            if (timer > 0)
-            {
-                forceFloatingScreen = true;
-                timer--;
-            }
-            else if (timer == 0)
-            {
-                timer = -1;
-
-                int objBorder = ConfigModule.Instance()->GetIntValue(ConfigOption.ObjectBorderingType);
-                if (objBorder == 0)
-                    ConfigModule.Instance()->SetOption(ConfigOption.ObjectBorderingType, 1);
-            }
-
-
-            if (HousingGoods != null)
-                housingMode = true;
-
-            if (curRenderMode == RenderModes.TwoD)
-                curEye = 0;
-            else
-                curEye = nextEye[curEye];
             //SetFramePose();
             //PluginLog.Log($"-- Update --  {curEye}");
         }
@@ -1317,6 +1310,13 @@ namespace xivr
                     }
                 }
             }
+        }
+        public void OnLogin(object? sender, EventArgs e)
+        {
+        }
+
+        public void OnLogout(object? sender, EventArgs e)
+        {
         }
 
         public void Dispose()
@@ -1852,6 +1852,13 @@ namespace xivr
         {
             if (enableVR && frfCalculateViewMatrix == false)
             {
+                if (xivr.cfg.data.ultrawideshadows == true)
+                    rawGameCamera->CurrentFoV = 2.54f; // ultra wide
+                else
+                    rawGameCamera->CurrentFoV = 1.65f;
+                rawGameCamera->MinFoV = rawGameCamera->CurrentFoV;
+                rawGameCamera->MaxFoV = rawGameCamera->CurrentFoV;
+
                 Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
                 frfCalculateViewMatrix = true;
 
@@ -2119,6 +2126,7 @@ namespace xivr
             Matrix4x4 retVal = MakeProjectionMatrix2Hook!.Original(projMatrix, b, c, d, e);
             if (enableVR && enableFloatingHUD && overrideMatrix && forceFloatingScreen == false)
             {
+
                 if (xivr.cfg.data.swapEyes)
                 {
                     gameProjectionMatrix[swapEyes[curEye]].M43 = retVal.M43;
@@ -2132,42 +2140,7 @@ namespace xivr
             }
             return retVal;
         }
-
-
-
-        //----
-        // CascadeShadow MakeProjectionMatrix
-        //----
-        private delegate Matrix4x4 CSMakeProjectionMatrixDg(Matrix4x4 projMatrix, float b, float c, float d, float e);
-        [Signature(Signatures.CSMakeProjectionMatrix, DetourName = nameof(CSMakeProjectionMatrixFn))]
-        private Hook<CSMakeProjectionMatrixDg>? CSMakeProjectionMatrixHook = null;
-
-        [HandleStatus("CSMakeProjectionMatrix")]
-        public void CSMakeProjectionMatrixStatus(bool status)
-        {
-            if (status == true)
-                CSMakeProjectionMatrixHook?.Enable();
-            else
-                CSMakeProjectionMatrixHook?.Disable();
-        }
-
-        private Matrix4x4 CSMakeProjectionMatrixFn(Matrix4x4 projMatrix, float b, float c, float d, float e)
-        {
-            bool overrideMatrix = (overrideFromParent.Count == 0) ? false : overrideFromParent.Peek();
-            if (enableVR && enableFloatingHUD && overrideMatrix && forceFloatingScreen == false)
-            {
-                if (xivr.cfg.data.ultrawideshadows == true)
-                    b = 2.54f; // ultra wide
-                else
-                    b = 1.65f;
-            }
-            Matrix4x4 retVal = CSMakeProjectionMatrixHook!.Original(projMatrix, b, c, d, e);
-            return retVal;
-        }
-
-
-
-
+        
 
         //----
         // NamePlateDraw
