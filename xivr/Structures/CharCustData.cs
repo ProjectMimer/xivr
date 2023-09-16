@@ -39,7 +39,7 @@ namespace xivr.Structures
         public void Save(Character* character)
         {
             for (int i = 0; i < 26; i++)
-                Data[i] = character->CustomizeData[i];
+                Data[i] = character->DrawData.CustomizeData[i];
         }
     }
 }

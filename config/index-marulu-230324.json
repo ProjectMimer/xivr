@@ -170,11 +170,19 @@
                "path" : "/user/hand/right/pose/base"
             },
             {
-               "output" : "/actions/game/in/lefthand",
+               "output" : "/actions/game/in/lefthand_palm",
+               "path" : "/user/hand/left/pose/openxr_aim"
+            },
+            {
+               "output" : "/actions/game/in/righthand_palm",
+               "path" : "/user/hand/right/pose/openxr_aim"
+            },
+            {
+               "output" : "/actions/game/in/lefthand_tip",
                "path" : "/user/hand/left/pose/tip"
             },
             {
-               "output" : "/actions/game/in/righthand",
+               "output" : "/actions/game/in/righthand_tip",
                "path" : "/user/hand/right/pose/tip"
             }
          ],

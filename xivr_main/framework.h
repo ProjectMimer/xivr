@@ -10,9 +10,8 @@
 #include "SteamVRInput.h"
 #include "BasicRenderer.h"
 #include "simpleVR.h"
-
+#include "stMonitorLayout.h"
 void forceFlush();
 
-#include "stDX11.h"
 #include "Configuration.h"
 #include "ffxivCameraManager.h"

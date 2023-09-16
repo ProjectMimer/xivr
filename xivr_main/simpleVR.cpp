@@ -29,10 +29,51 @@ void simpleVR::InitalizeVR()
 	memcpy(&eyeViewMatrix[0], identMatrix._m, sizeof(uMatrix));
 	memcpy(&eyeViewMatrix[1], identMatrix._m, sizeof(uMatrix));
 	memcpy(&hmdMatrix, identMatrix._m, sizeof(uMatrix));
-	memcpy(&controllerLeftMatrix, identMatrix._m, sizeof(uMatrix));
-	memcpy(&controllerRightMatrix, identMatrix._m, sizeof(uMatrix));
+	memcpy(&controllerMatrix[0], identMatrix._m, sizeof(uMatrix));
+	memcpy(&controllerMatrix[1], identMatrix._m, sizeof(uMatrix));
+	memcpy(&controllerMatrix[2], identMatrix._m, sizeof(uMatrix));
+	memcpy(&controllerMatrix[3], identMatrix._m, sizeof(uMatrix));
+
+	layoutFinger[0] = fingerHandLayout();
+	layoutFinger[1] = fingerHandLayout();
 }
 
+bool simpleVR::PreloadVR()
+{
+	if (!vr::VR_IsHmdPresent())
+	{
+		//InitalizeVR();
+		_isConnected = false;
+		return _isConnected;
+	}
+
+	vr::EVRInitError eError = vr::VRInitError_None;
+	vr::IVRSystem* localVRSession = vr::VR_Init(&eError, vr::VRApplication_Scene);
+
+	//----
+	// Gets the buffer and resolution sizes
+	//----
+	int32_t rX = 0;
+	int32_t rY = 0;
+	uint32_t rWidth = 0;
+	uint32_t rHeight = 0;
+
+	vr::IVRExtendedDisplay* d = vr::VRExtendedDisplay();
+	d->GetWindowBounds(&rX, &rY, &rWidth, &rHeight);
+	resolution.x = rWidth;
+	resolution.y = rHeight;
+
+	localVRSession->GetRecommendedRenderTargetSize(&rWidth, &rHeight);
+	bufferSize.x = rWidth;
+	bufferSize.y = rHeight;
+
+	if (cfg->vLog)
+	{
+		logError << "Getting Buffers" << std::endl;
+	}
+	vr::VR_Shutdown();
+	localVRSession = nullptr;
+}
 
 bool simpleVR::StartVR()
 {
@@ -55,7 +96,7 @@ bool simpleVR::StartVR()
 		{
 			logError << "Creating Projection" << std::endl;
 		}
-		depthRange.v[0] = 0.1f;
+		depthRange.v[0] = 0.05f;
 		depthRange.v[1] = 10000.0f;
 
 		textureBounds[0] = vr::VRTextureBounds_t();
@@ -190,27 +231,7 @@ bool simpleVR::StartVR()
 		memcpy(&eyeViewMatrix[0], &eyeViewMatrixRaw[0], sizeof(uMatrix));
 		memcpy(&eyeViewMatrix[1], &eyeViewMatrixRaw[1], sizeof(uMatrix));
 
-		//----
-		// Gets the buffer and resolution sizes
-		//----
-		int32_t rX = 0;
-		int32_t rY = 0;
-		uint32_t rWidth = 0;
-		uint32_t rHeight = 0;
-
-		vr::IVRExtendedDisplay* d = vr::VRExtendedDisplay();
-		d->GetWindowBounds(&rX, &rY, &rWidth, &rHeight);
-		resolution.x = rWidth;
-		resolution.y = rHeight;
-
-		openVRSession->GetRecommendedRenderTargetSize(&rWidth, &rHeight);
-		bufferSize.x = rWidth;
-		bufferSize.y = rHeight;
-
-		if (cfg->vLog)
-		{
-			logError << "Resizing Buffers" << std::endl;
-		}
+		
 
 		if (cfg->asymmetricProjection)
 		{
@@ -305,6 +326,9 @@ void simpleVR::SetFramePose()
 						//----
 						// Check and see if we are dealing with the left or right controller
 						//----
+						//vr::VRControllerState_t controllerState;
+						//openVRSession->GetControllerState(i, &controllerState, sizeof(vr::VRControllerState_t));
+
 						vr::ETrackedControllerRole controllerRole = openVRSession->GetControllerRoleForTrackedDeviceIndex(i);
 						if (controllerRole == vr::TrackedControllerRole_LeftHand) {
 							controllerPose[0] = rTrackedDevicePose[i];
@@ -368,7 +392,7 @@ void simpleVR::SetFramePose()
 	}
 }
 
-void simpleVR::SetActionPose(vr::HmdMatrix34_t matPose, poseType pose)
+void simpleVR::SetActionPose(vr::HmdMatrix34_t matPose, poseType poseType)
 {
 	float poseMatrix[] = {
 		matPose.m[0][0], matPose.m[1][0], matPose.m[2][0], 0.0f,
@@ -376,16 +400,27 @@ void simpleVR::SetActionPose(vr::HmdMatrix34_t matPose, poseType pose)
 		matPose.m[0][2], matPose.m[1][2], matPose.m[2][2], 0.0f,
 		matPose.m[0][3], matPose.m[1][3], matPose.m[2][3], 1.0f
 	};
-	if (pose == poseType::LeftHand)
-		memcpy(controllerLeftMatrix.matrix, poseMatrix, sizeof(float) * 4 * 4);
-	else if (pose == poseType::RightHand)
-		memcpy(controllerRightMatrix.matrix, poseMatrix, sizeof(float) * 4 * 4);
-
+	if (poseType == poseType::LeftHand)
+		memcpy(controllerMatrix[0].matrix, poseMatrix, sizeof(float) * 4 * 4);
+	else if (poseType == poseType::LeftHandPalm)
+		memcpy(controllerMatrix[1].matrix, poseMatrix, sizeof(float) * 4 * 4);
+	else if (poseType == poseType::RightHand)
+		memcpy(controllerMatrix[2].matrix, poseMatrix, sizeof(float) * 4 * 4);
+	else if (poseType == poseType::RightHandPalm)
+		memcpy(controllerMatrix[3].matrix, poseMatrix, sizeof(float) * 4 * 4);
 }
 
-uMatrix simpleVR::GetFramePose(poseType pose_type, int eye)
+void simpleVR::SetSkeletalPose(vr::VRBoneTransform_t* boneArray, int boneCount, poseType poseType)
 {
-	switch (pose_type)
+	if (poseType == poseType::LeftHand && boneCount == 31)
+		memcpy(&layoutFinger[0], boneArray, boneCount * sizeof(vr::VRBoneTransform_t));
+	else if (poseType == poseType::RightHand && boneCount == 31)
+		memcpy(&layoutFinger[1], boneArray, boneCount * sizeof(vr::VRBoneTransform_t));
+}
+
+uMatrix simpleVR::GetFramePose(poseType poseType, int eye)
+{
+	switch (poseType)
 	{
 	case poseType::Projection:
 		return projMatrixRaw[eye];
@@ -397,15 +432,29 @@ uMatrix simpleVR::GetFramePose(poseType pose_type, int eye)
 		return hmdMatrix;
 		break;
 	case poseType::LeftHand:
-		return controllerLeftMatrix;
+		return controllerMatrix[0];
+		break;
+	case poseType::LeftHandPalm:
+		return controllerMatrix[1];
 		break;
 	case poseType::RightHand:
-		return controllerRightMatrix;
+		return controllerMatrix[2];
+		break;
+	case poseType::RightHandPalm:
+		return controllerMatrix[3];
 		break;
 	default:
 		return identMatrix;
 		break;
 	}
+}
+
+fingerHandLayout simpleVR::GetSkeletalPose(poseType poseType)
+{
+	if (poseType == poseType::LeftHand)
+		return layoutFinger[0];
+	else if (poseType == poseType::RightHand)
+		return layoutFinger[1];
 }
 
 void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D11Texture2D* rightEye, ID3D11Texture2D* rightDepth)
@@ -433,7 +482,7 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D
 
 		depthRange.v[0] = 0.0f;
 		depthRange.v[1] = 1.0f;
-
+		
 		vr::HmdMatrix44_t projMat[2];
 		projMat[0].m[0][0] = projMatrixRaw[0].matrix[0][0];
 		projMat[0].m[0][1] = projMatrixRaw[0].matrix[1][0];
@@ -486,10 +535,13 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D
 		completeDepth[1].eType = vr::TextureType_DirectX;
 		completeDepth[1].eColorSpace = vr::ColorSpace_Gamma;
 		completeDepth[1].depth = { rightDepth, projMat[1], depthRange };
-
+		
 		vr::VRTextureBounds_t _bound = { 0.0f, 0.0f,  1.0f, 1.0f };
 
-		WaitGetPoses();
+		//textureBounds[0] = { 0.0f, 0.0f, 0.5f, 1.0f };
+		//textureBounds[1] = { 0.5f, 0.0f, 1.0f, 1.0f };
+		
+		//WaitGetPoses();
 
 		vr::EVRCompositorError error = vr::VRCompositorError_None;
 		//error = vr::VRCompositor()->Submit(vr::Eye_Left, &completeTexture[0], &textureBounds[0], vr::Submit_Default);
@@ -504,7 +556,7 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D
 			logError << "SimpleVR VRCompositor Error: " << std::hex << error << std::endl;
 		}
 
-		SetFramePose();
+		WaitGetPoses();
 	}
 }
 

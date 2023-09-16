@@ -1,10 +1,16 @@
 #pragma once
 #include <d3d11_4.h>
 
+union unTexturePtr
+{
+	ID3D11RenderTargetView* RenderTargetView;
+	ID3D11DepthStencilView* DepthStencilView;
+};
+
 struct stTexture
 {
 	/* 0x000 */ unsigned long long uk1;
-	/* 0x008 */ unsigned int type;
+	/* 0x008 */ unsigned int RefCount;
 	/* 0x00C */ unsigned int uk3;
 	/* 0x010 */ unsigned long long uk4;
 	/* 0x018 */ unsigned long long uk5;
@@ -26,5 +32,6 @@ struct stTexture
 	/* 0x068 */ ID3D11Texture2D* Texture;
 	/* 0x070 */ ID3D11ShaderResourceView* ShaderResourceView;
 	/* 0x078 */ unsigned long long ukB;
-	/* 0x080 */ unsigned long long RenderTargetPtr;
+	/* 0x080 */ unTexturePtr* itemPtr;
+	/* 0x088 */ byte spcr5[0xF8 - 0x80];
 };

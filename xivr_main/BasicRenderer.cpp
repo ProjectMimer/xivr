@@ -1,6 +1,7 @@
 #include "BasicRenderer.h"
-
-
+#define _USE_MATH_DEFINES
+#include <math.h>
+#include <list>
 
 BasicRenderer::BasicRenderer(stConfiguration* config) : dev(nullptr), devcon(nullptr), cfg(config)
 {
@@ -155,6 +156,41 @@ float4 PShaderColor(VOutColor input) : SV_TARGET
 }
 		)""";
 
+	const char* defaultPixelShaderWithoutMouseDotSrc = R"""(
+Texture2D shaderTexture;
+SamplerState sampleType;
+static const float PI = 3.14159265;
+cbuffer mousePos
+{
+	float2 radiusR;
+	float2 coordsR;
+	float2 radiusB;
+	float2 coordsB;
+};
+struct VOut
+{
+	float4 position : SV_POSITION;
+	float2 tex : TEXCOORD0;
+};
+float4 tex2Dmultisample(SamplerState tex, float2 uv)
+{
+	float2 dx = ddx(uv) * 0.25;
+	float2 dy = ddy(uv) * 0.25;
+
+	float4 sample0 = shaderTexture.Sample(tex, uv + dx + dy);
+	float4 sample1 = shaderTexture.Sample(tex, uv + dx - dy);
+	float4 sample2 = shaderTexture.Sample(tex, uv - dx + dy);
+	float4 sample3 = shaderTexture.Sample(tex, uv - dx - dy);
+    
+	return (sample0 + sample1 + sample2 + sample3) * 0.25;
+}
+float4 PShader(VOut input) : SV_TARGET
+{
+	float4 pixel = tex2Dmultisample(sampleType, input.tex);
+	return float4(pixel.xyz, 0.75f);
+}
+	)""";
+
 	const char* defaultPixelShaderWithMouseDotSrc = R"""(
 Texture2D shaderTexture;
 SamplerState sampleType;
@@ -205,7 +241,6 @@ float4 PShader(VOut input) : SV_TARGET
 	)""";
 
 	HRESULT result = S_OK;
-	ID3D10Blob* errorMessage;
 	ID3D10Blob* VS;
 	ID3D10Blob* PS;
 
@@ -218,6 +253,13 @@ float4 PShader(VOut input) : SV_TARGET
 
 	CompileShaderFromString(defaultPixelShaderWithMouseDotSrc, "PShader", "ps_4_0", &PS);
 	result = dev->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &pPS);
+	if (FAILED(result)) {
+		MessageBoxA(0, "Error Creating PixelShader", "Error", MB_OK);
+		return false;
+	}
+
+	CompileShaderFromString(defaultPixelShaderWithoutMouseDotSrc, "PShader", "ps_4_0", &PS);
+	result = dev->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &pPS1);
 	if (FAILED(result)) {
 		MessageBoxA(0, "Error Creating PixelShader", "Error", MB_OK);
 		return false;
@@ -436,17 +478,26 @@ bool BasicRenderer::CreateBuffers()
 	HRESULT result = S_OK;
 
 	orthogSquare = RenderSquare(dev, devcon);
-	orthogSquare.SetShadersLayout(pLayout, pVS, pPS);
+	orthogSquare.SetShadersLayout(pLayout, pVS, pPS1);
 
 	curvedUI = RenderCurvedUI(dev, devcon);
 	curvedUI.SetShadersLayout(pLayout, pVS, pPS);
 	//curvedUI.SetShadersLayout(pLayoutColor, pVSColor, pPSColor);
 
+	osk = RenderOSK(dev, devcon);
+	osk.SetShadersLayout(pLayout, pVS, pPS1);
+	
 	colorCube = RenderCube(dev, devcon);
 	colorCube.SetShadersLayout(pLayoutColor, pVSColor, pPSColor);
 
 	rayLine = RenderRayLine(dev, devcon);
 	rayLine.SetShadersLayout(pLayoutColor, pVSColor, pPSColor);
+
+	for (int i = 0; i < handSquareCount; i++)
+	{
+		handSquare[i] = RenderSquare(dev, devcon);
+		handSquare[i].SetShadersLayout(pLayout, pVS, pPS1);
+	}
 
 
 	D3D11_BUFFER_DESC matrixBufferDesc;
@@ -476,7 +527,7 @@ bool BasicRenderer::CreateBuffers()
 		MessageBoxA(0, "Error creating mouse buffer", "Error", MB_OK);
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -486,10 +537,13 @@ void BasicRenderer::DestroyBuffers()
 	if (pMouseBuffer) { pMouseBuffer->Release(); pMouseBuffer = nullptr; }
 
 	curvedUI.Release();
+	osk.Release();
 	orthogSquare.Release();
 	colorCube.Release();
 	rayLine.Release();
 
+	for (int i = 0; i < handSquareCount; i++)
+		handSquare[i].Release();
 }
 
 void BasicRenderer::MapResource(ID3D11Buffer* buffer, void* data, int size)
@@ -500,23 +554,12 @@ void BasicRenderer::MapResource(ID3D11Buffer* buffer, void* data, int size)
 	devcon->Unmap(buffer, 0);
 }
 
-void BasicRenderer::SetClearColor(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv, float color[], bool clearDepth)
-{
-	devcon->ClearRenderTargetView(rtv, color);
-	if(clearDepth)
-		devcon->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-}
-
-void BasicRenderer::SetBlendIndex(int index)
-{
-	blendIndex = index;
-}
-
-void BasicRenderer::SetMousePosition(HWND hwnd, int mouseX, int mouseY)
+void BasicRenderer::SetMousePosition(HWND hwnd, int mouseX, int mouseY, bool forceMouse)
 {
 	HWND active = GetActiveWindow();
 	POINT p;
-	if (active == hwnd)
+
+	if (active == hwnd || forceMouse == true)
 	{
 		p.x = mouseX;
 		p.y = mouseY;
@@ -527,7 +570,18 @@ void BasicRenderer::SetMousePosition(HWND hwnd, int mouseX, int mouseY)
 
 void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX, int mouseY, bool dalamudMode)
 {
-	if (mouseX == width / 2 && mouseY == height / 2)
+	//----
+	// check and see if the main ui is the only object being interacted with
+	// and only show the dot on the main ui if the ray is over the main ui
+	//----
+	bool showOnUI = curvedUIAtUI;
+	if (oskAtUI)
+		showOnUI |= false;
+	for (int i = 0; i < handSquareCount; i++)
+		if(handSquareAtUI[i])
+			showOnUI |= false;
+
+	if (mouseX == width / 2 && mouseY == height / 2 || showOnUI != curvedUIAtUI)
 	{
 		mouseBuffer.radiusR.x = 0.000f;
 		mouseBuffer.radiusB.x = 0.000f;
@@ -536,11 +590,12 @@ void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX,
 	{
 		mouseBuffer.radiusR.x = 0.0025f;
 		mouseBuffer.radiusB.x = 0.0025f;
-		if(controllerAtUI == true && dalamudMode == false)
+		if (dalamudMode == false)
 			mouseBuffer.radiusB.x = 0.0f;
-		else if (controllerAtUI == true && dalamudMode == true)
+		else if (dalamudMode == true)
 			mouseBuffer.radiusR.x = 0.0f;
 	}
+
 	POINT p;
 	GetCursorPos(&p);
 	ScreenToClient(hwnd, &p);
@@ -554,17 +609,45 @@ void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX,
 	MapResource(pMouseBuffer, &mouseBuffer, sizeof(stMouseBuffer));
 }
 
-void BasicRenderer::RunFrameUpdate(stScreenLayout screenLayout, XMMATRIX rayMatrix, poseType inputRayType, bool dalamudMode)
+void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputRayType, bool dalamudMode, bool showOSK)
 {
-	controllerAtUI = false;
-	static float needsRecenter = false;
-	float aspect = (float)screenLayout.width / (float)screenLayout.height;
+	struct intersectLayout
+	{
+		RenderObject* item;
+		bool* atUI;
+		stScreenLayout* layout;
+		XMVECTOR intersection;
+		float dist;
+		float multiplyer;
+		bool updateDistance;
+		bool forceMouse;
+		bool fromCenter;
+	};
+
+	for (int i = 0; i < handSquareCount; i++) { handSquareAtUI[i] = false; }
+	oskAtUI = false;
+	curvedUIAtUI = false;
+	
+	float aspect = (float)screenLayout->width / (float)screenLayout->height;
 
 	XMMATRIX aspectScaleMatrix = XMMatrixScaling(aspect, 1, 1);
 	XMMATRIX uiScaleMatrix = XMMatrixScaling(cfg->uiOffsetScale, cfg->uiOffsetScale, cfg->uiOffsetScale);
 	XMMATRIX uiZMatrix = XMMatrixTranslation(0.0f, 0.0f, (cfg->uiOffsetZ / 100.0f));
 	XMMATRIX moveMatrix = XMMatrixTranslation(0.0f, 0.0f, -1.0f);
 	curvedUI.SetObjectMatrix(aspectScaleMatrix * uiScaleMatrix * uiZMatrix * moveMatrix);
+
+	aspect = 1;
+	if (oskLayout != nullptr && oskLayout->haveLayout)
+		aspect = (float)oskLayout->width / (float)oskLayout->height;
+	XMMATRIX aspectScaleMatrixOSK = XMMatrixScaling(aspect, 1, 1);
+	XMMATRIX rotateMatrixOSK = XMMatrixRotationX(-30.0f * ((float)M_PI / 180.0f));
+	XMMATRIX moveMatrixOSK = XMMatrixTranslation(0.0f, -0.4f, -0.99f);
+	XMMATRIX scaleMatrixOSK = XMMatrixScaling(0.08f, 0.08f, 0.08f);
+	XMMATRIX scaleOSK = (oskLayout != nullptr && oskLayout->haveLayout && showOSK) ? XMMatrixScaling(1.0f, 1.0f, 1.0f) : XMMatrixScaling(0.0001f, 0.0001f, 0.0001f);
+	XMMATRIX offsetMatrixOSK = XMMatrixTranslation(oskOffset.x, oskOffset.y, oskOffset.z);
+	//XMMATRIX offsetMatrixOSK = XMMatrixRotationY(-oskOffset.x * 3);
+	osk.SetObjectMatrix(aspectScaleMatrixOSK * scaleMatrixOSK * rotateMatrixOSK * uiZMatrix * moveMatrixOSK * offsetMatrixOSK * scaleOSK);
+	//osk.SetObjectMatrix(aspectScaleMatrixOSK * scaleMatrixOSK * uiZMatrix * offsetMatrixOSK * scaleOSK);
 
 	XMMATRIX scaleMatrixRHC = XMMatrixScaling(0.025f, 0.025f, 0.05f);
 	colorCube.SetObjectMatrix(scaleMatrixRHC * rayMatrix);
@@ -575,77 +658,109 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout screenLayout, XMMATRIX rayMatr
 		0, 0, 0,	0.0f, 0.0f, 0.0f, 0.0f,
 	};
 
-	int mouseMultiplyer = 3;
-
 	if (inputRayType == poseType::hmdPosition || inputRayType == poseType::RightHand)
 	{
 		XMVECTOR origin = { rayMatrix.r[3].m128_f32[0], rayMatrix.r[3].m128_f32[1], rayMatrix.r[3].m128_f32[2] };
 		XMVECTOR frwd = { rayMatrix.r[2].m128_f32[0], rayMatrix.r[2].m128_f32[1], rayMatrix.r[2].m128_f32[2] };
 		XMVECTOR end = origin + (frwd * -1) * 10.f;
 		XMVECTOR norm = XMVector3Normalize(frwd);
-		
+
 		lineData =
 		{
 			origin.m128_f32[0], origin.m128_f32[1], origin.m128_f32[2], 1.0f, 0.0f, 0.0f, 0.75f,
-			end.m128_f32[0], end.m128_f32[1], end.m128_f32[2],			 1.0f, 0.0f, 0.0f, 0.25f
+			end.m128_f32[0], end.m128_f32[1], end.m128_f32[2],			1.0f, 0.0f, 0.0f, 0.25f
 		};
 
 		if (dalamudMode)
 		{
-			lineData[3] = 0.498f;
-			lineData[4] = 0.0f;
-			lineData[5] = 1.0f;
-			lineData[10] = 0.498f;
-			lineData[11] = 0.0f;
-			lineData[12] = 1.0f;
-
-			mouseMultiplyer = 1;
+			lineData[ 3] = 0.498f; lineData[ 4] = 0.0f; lineData[ 5] = 1.0f;
+			lineData[10] = 0.498f; lineData[11] = 0.0f; lineData[12] = 1.0f;
 		}
 
-		POINT halfScreen = POINT();
-		halfScreen.x = (screenLayout.width / 2);
-		halfScreen.y = (screenLayout.height / 2);
+		//----
+		// Add all the interactable items to the intersect list
+		//----
+		std::list<intersectLayout> intersectList = std::list<intersectLayout>();
+		for (int i = 0; i < handSquareCount; i++)
+			intersectList.push_back({ &handSquare[i], &handSquareAtUI[i], nullptr, { 0, 0, 0 }, 0, 0, true, false, false });
+		intersectList.push_back({ &osk, &oskAtUI, oskLayout, { 0, 0, 0 }, 0, 1, true, true, false });
+		if(dalamudMode)
+			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 1, false, false, true });
+		else
+			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 3, false, false, true });
 
-		XMVECTOR intersection = { 0.0f, 0.0f, 0.0f };
-		float dist = 0;
-		if (curvedUI.RayIntersection(origin, norm, &intersection, &dist, &logError))
+		//----
+		// Go though all interactable items and check to see if the ray interacts with something
+		//----
+		
+		float dist = -9999;
+		intersectLayout closest = intersectLayout();
+		for (std::list<intersectLayout>::iterator it = intersectList.begin(); it != intersectList.end(); ++it)
 		{
-			//----
-			// converts uv (0.0->1.0) to screen coords | width/height
-			//----
-			intersection.m128_f32[0] = intersection.m128_f32[0] * screenLayout.width;
-			intersection.m128_f32[1] = intersection.m128_f32[1] * screenLayout.height;
+			if (it->layout == nullptr || it->layout->haveLayout)
+			{
+				*(it->atUI) = it->item->RayIntersection(origin, norm, &it->intersection, &it->dist, &logError);
+				if (*(it->atUI) == true && it->dist >= dist)
+				{
+					dist = it->dist;
+					closest = *it;
+				}
+			}
+		}
 
-			//----
-			// Changes anchor from top left corner to middle of screen
-			//----
-			intersection.m128_f32[0] = halfScreen.x + ((intersection.m128_f32[0] - halfScreen.x) / mouseMultiplyer);
-			intersection.m128_f32[1] = halfScreen.y + ((intersection.m128_f32[1] - halfScreen.y) / mouseMultiplyer);
+		if (closest.item != nullptr)
+		{
+			HWND useHWND = 0;
+			if (closest.layout != nullptr)
+			{
+				POINT halfScreen = POINT();
+				halfScreen.x = (closest.layout->width / 2);
+				halfScreen.y = (closest.layout->height / 2);
 
+				//----
+				// converts uv (0.0->1.0) to screen coords | width/height
+				//----
+				closest.intersection.m128_f32[0] = closest.intersection.m128_f32[0] * closest.layout->width;
+				closest.intersection.m128_f32[1] = closest.intersection.m128_f32[1] * closest.layout->height;
+
+				//----
+				// Changes anchor from top left corner to middle of screen
+				//----
+				if (closest.fromCenter)
+				{
+					closest.intersection.m128_f32[0] = halfScreen.x + ((closest.intersection.m128_f32[0] - halfScreen.x) / closest.multiplyer);
+					closest.intersection.m128_f32[1] = halfScreen.y + ((closest.intersection.m128_f32[1] - halfScreen.y) / closest.multiplyer);
+				}
+				useHWND = closest.layout->hwnd;
+			}
 
 			end = origin + (norm * dist);
-			//lineData[7] = end.m128_f32[0];
-			//lineData[8] = end.m128_f32[1];
-			//lineData[9] = end.m128_f32[2];
+			if (closest.updateDistance)
+			{
+				lineData[7] = end.m128_f32[0];
+				lineData[8] = end.m128_f32[1];
+				lineData[9] = end.m128_f32[2];
+			}
 			lineData[10] = 1.0f;
 			lineData[11] = 1.0f;
 			lineData[12] = 1.0f;
 
 			if (inputRayType == poseType::RightHand)
 			{
-				controllerAtUI = true;
 				needsRecenter = true;
-				SetMousePosition(screenLayout.hwnd, (int)intersection.m128_f32[0], (int)intersection.m128_f32[1]);
+				SetMousePosition(useHWND, (int)closest.intersection.m128_f32[0], (int)closest.intersection.m128_f32[1], closest.forceMouse);
 			}
 		}
 		else
 		{
 			if (needsRecenter)
 			{
+				POINT halfScreen = POINT();
+				halfScreen.x = (screenLayout->width / 2);
+				halfScreen.y = (screenLayout->height / 2);
+
 				needsRecenter = false;
-				intersection.m128_f32[0] = halfScreen.x;
-				intersection.m128_f32[1] = halfScreen.y;
-				SetMousePosition(screenLayout.hwnd, (int)intersection.m128_f32[0], (int)intersection.m128_f32[1]);
+				SetMousePosition(screenLayout->hwnd, halfScreen.x, halfScreen.y, false);
 			}
 		}
 		if (inputRayType == poseType::RightHand)
@@ -680,6 +795,7 @@ void BasicRenderer::RenderLines(std::vector<std::vector<float>> LineRender)
 		vertices.insert(vertices.end(), p1.begin(), p1.end());
 	}
 
+	lineObj.Release();
 	lineObj = RenderObject(dev, devcon);
 	lineObj.SetShadersLayout(pLayoutColor, pVSColor, pPSColor);
 	lineObj.SetVertexBuffer(vertices, 7, D3D11_USAGE_DYNAMIC);
@@ -699,7 +815,7 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 
 	devcon->OMSetRenderTargets(1, &rtv, dsv);
 	//devcon->OMSetRenderTargets(1, &rtv, NULL);
-	
+
 	devcon->RSSetViewports(1, &viewport);
 	devcon->VSSetConstantBuffers(0, 1, &pMatrixBuffer);
 	devcon->PSSetConstantBuffers(0, 1, &pMouseBuffer);
@@ -707,7 +823,6 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 	devcon->PSSetShaderResources(0, 1, &srv);
 	devcon->PSSetSamplers(0, 1, &pSampleState);
 
-	
 
 	if (isOrthog)
 	{
@@ -715,7 +830,7 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 		matrixBuffer.view = XMMatrixIdentity();
 		matrixBuffer.projection = XMMatrixIdentity();
 		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
-		
+
 		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		devcon->OMSetDepthStencilState(pDepthStateOn, 0);
 		orthogSquare.Render();
@@ -738,7 +853,7 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 		matrixBuffer.view = XMMatrixTranspose(XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix));
 		matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
 		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
-		
+
 		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		if (cfg->uiDepth == false)
 			devcon->OMSetDepthStencilState(pDepthStateOff, 0);
@@ -754,7 +869,7 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 		matrixBuffer.view = XMMatrixTranspose(XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix));
 		matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
 		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
-		
+
 		//colorCube.Render();
 
 
@@ -770,7 +885,234 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 
 			lineObj.Render();
 		}
-		lineObj.Release();
+
+	}
+}
+
+void BasicRenderer::SaveSettings()
+{
+	haveSaved = true;
+	devcon->OMGetBlendState(&savedBlendState, savedBlendFactor, &savedSampleMask);
+	devcon->OMGetDepthStencilState(&savedDepthStencilState, &savedStencilRef);
+	devcon->OMGetRenderTargets(1, &savedRenderTargetView, &savedDepthStencilView);
+	devcon->PSGetSamplers(0, 1, &savedSampleState);
+	devcon->IAGetPrimitiveTopology(&savedPrimitiveTopology);
+	devcon->IAGetInputLayout(&savedInputLayout);
+	devcon->IAGetVertexBuffers(0, 1, &savedVertexBuffer, &savedVertexStride, &savedVertexOffset);
+	devcon->IAGetIndexBuffer(&savedIndexBuffer, &savedIndexFormat, &savedIndexOffset);
+	//devcon->RSGetViewports(&savedNumViewports, &savedViewport);
+	//devcon->VSGetShader(&savedVertexShader, &savedVertexClassInstance, &savedVertexNumClassInstance);
+	//devcon->VSGetConstantBuffers(0, 5, &savedVSBuffer);
+	//devcon->PSGetShader(&savedPixelShader, &savedPixelClassInstance, &savedPixelNumClassInstance);
+	//devcon->PSGetConstantBuffers(0, 5, &savedPSBuffer);
+}
+
+void BasicRenderer::LoadSettings()
+{
+	if (haveSaved)
+	{
+		devcon->OMSetBlendState(savedBlendState, savedBlendFactor, savedSampleMask);
+		devcon->OMSetDepthStencilState(savedDepthStencilState, savedStencilRef);
+		devcon->OMSetRenderTargets(1, &savedRenderTargetView, savedDepthStencilView);
+		devcon->PSSetSamplers(0, 1, &savedSampleState);
+		devcon->IASetPrimitiveTopology(savedPrimitiveTopology);
+		devcon->IASetInputLayout(savedInputLayout);
+		devcon->IASetVertexBuffers(0, 1, &savedVertexBuffer, &savedVertexStride, &savedVertexOffset);
+		devcon->IASetIndexBuffer(savedIndexBuffer, savedIndexFormat, savedIndexOffset);
+		//devcon->RSSetViewports(savedNumViewports, &savedViewport);
+		//devcon->VSSetShader(savedVertexShader, &savedVertexClassInstance, savedVertexNumClassInstance);
+		//devcon->VSSetConstantBuffers(0, 1, &savedVSBuffer);
+		//devcon->PSSetShader(savedPixelShader, &savedPixelClassInstance, savedPixelNumClassInstance);
+		//devcon->PSSetConstantBuffers(0, 1, &savedPSBuffer);
+
+		haveSaved = false;
+	}
+}
+
+
+void BasicRenderer::SetRenderTarget(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv)
+{
+	devcon->OMSetRenderTargets(1, &rtv, dsv);
+
+	devcon->VSSetConstantBuffers(0, 1, &pMatrixBuffer);
+	devcon->PSSetConstantBuffers(0, 1, &pMouseBuffer);
+	devcon->PSSetSamplers(0, 1, &pSampleState);
+}
+
+void BasicRenderer::SetClearColor(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv, float color[], bool clearDepth)
+{
+	devcon->ClearRenderTargetView(rtv, color);
+	if (clearDepth)
+		devcon->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+}
+
+void BasicRenderer::SetBlendIndex(int index)
+{
+	blendIndex = index;
+}
+
+void BasicRenderer::DoRenderRay(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet)
+{
+	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrix * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
+
+	//----
+	// Renders the ray
+	//----
+	matrixBuffer.world = rayLine.GetObjectMatrix(false, true);
+	//matrixBuffer.view = XMMatrixTranspose(gameWorldMatrix);
+	matrixBuffer.view = XMMatrixTranspose(XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix));
+	matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
+	MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
+
+	devcon->RSSetViewports(1, &viewport);
+	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+	devcon->OMSetDepthStencilState(pDepthStateOn, 0);
+	rayLine.Render();
+}
+
+void BasicRenderer::DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet)
+{
+	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrix * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
+	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+
+	//----
+	// Renders other lines
+	//----
+	if (lineObj.GetVertexCount() > 0)
+	{
+		matrixBuffer.world = lineObj.GetObjectMatrix(false, true);
+		matrixBuffer.view = XMMatrixTranspose(gameWorldMatrix);
+		//matrixBuffer.view = XMMatrixTranspose(XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix));
+		matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
+		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
+
+		devcon->RSSetViewports(1, &viewport);
+		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+		devcon->OMSetDepthStencilState(pDepthStateOff, 0);
+		lineObj.Render();
+	}
+
+}
+
+void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isOrthog, bool moveOrthog)
+{
+	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrix * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
+	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+
+	devcon->RSSetViewports(1, &viewport);
+	devcon->PSSetShaderResources(0, 1, &srv);
+	devcon->OMSetBlendState(pBlendState[blendIndex], blendFactor, 0xffffffff);
+	if (isOrthog)
+	{
+		matrixBuffer.world = XMMatrixIdentity();
+		matrixBuffer.view = XMMatrixIdentity();
+		matrixBuffer.projection = XMMatrixIdentity();
+		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
+
+		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		devcon->OMSetDepthStencilState((useDepth) ? pDepthStateOn : pDepthStateOff, 0);
+		orthogSquare.Render();
+	}
+	else
+	{
+		//----
+		// Renders the curved UI
+		//----
+		matrixBuffer.world = curvedUI.GetObjectMatrix(false, true);
+		//matrixBuffer.view = XMMatrixTranspose(gameWorldMatrix);
+		matrixBuffer.view = XMMatrixTranspose(XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix));
+		matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
+		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
+
+		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		devcon->OMSetDepthStencilState((useDepth) ? pDepthStateOn : pDepthStateOff, 0);
+		curvedUI.Render();
+
+		/*
+		devcon->OMSetDepthStencilState(pDepthStateOn, 0);
+		matrixBuffer.world = colorCube.GetObjectMatrix(false, true);
+		//matrixBuffer.view = XMMatrixTranspose(gameWorldMatrix);
+		matrixBuffer.view = XMMatrixTranspose(XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix));
+		matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
+		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
+		colorCube.Render();
+		*/
+	}
+}
+
+void BasicRenderer::DoRenderOSK(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth)
+{
+	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrix * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
+	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+
+	devcon->RSSetViewports(1, &viewport);
+	devcon->PSSetShaderResources(0, 1, &srv);
+	devcon->OMSetBlendState(pBlendState[blendIndex], blendFactor, 0xffffffff);
+	
+	//----
+	// Renders the curved UI
+	//----
+	matrixBuffer.world = osk.GetObjectMatrix(false, true);
+	//matrixBuffer.view = XMMatrixTranspose(gameWorldMatrix);
+	matrixBuffer.view = XMMatrixTranspose(XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix));
+	matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
+	MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
+
+	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	devcon->OMSetDepthStencilState((useDepth) ? pDepthStateOn : pDepthStateOff, 0);
+	osk.Render();
+}
+
+
+
+void BasicRenderer::DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv[], stMatrixSet* matrixSet, int blendIndex)
+{
+	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrixFloating * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
+	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+
+	devcon->RSSetViewports(1, &viewport);
+	devcon->OMSetBlendState(pBlendState[blendIndex], blendFactor, 0xffffffff);
+
+	int x = 0;
+	int y = 0;
+	for (int i = 0; i < handSquareCount; i++)
+	{
+		XMMATRIX ScaleMatrix = XMMatrixScaling(0.015f, 0.015f, 0.015f);
+		XMMATRIX moveMatrix = XMMatrixTranslation((x * 2) * 0.015f, (y * 2) * 0.015f, 0.02f);
+		XMMATRIX rotateMatrix = XMMatrixRotationY(90.0f * ((float)M_PI / 180.0f)) * XMMatrixRotationZ(180.0f * ((float)M_PI / 180.0f));
+
+		handSquare[i].SetObjectMatrix(ScaleMatrix * moveMatrix * rotateMatrix * matrixSet->lhcMatrix);
+		//handSquare[i].SetObjectMatrix(moveMatrix * matrixSet->lhcMatrix);
+
+		matrixBuffer.world = handSquare[i].GetObjectMatrix(false, true);
+		matrixBuffer.view = XMMatrixTranspose(gameWorldMatrix);
+		//matrixBuffer.view = XMMatrixTranspose(XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix));
+		matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
+		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
+
+		int activeOffset = ((handSquareAtUI[i]) ? 1 : 0);
+		devcon->PSSetShaderResources(0, 1, &srv[(i * 2) + activeOffset]);
+		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		devcon->OMSetDepthStencilState(pDepthStateOn, 0);
+		handSquare[i].Render();
+
+		x++;
+		if (x >= 3)
+		{
+			y++;
+			x = 0;
+		}
+	}
+}
+
+void BasicRenderer::GetUIStatus(bool* status, int count)
+{
+	if (count == (handSquareCount + 2))
+	{
+		for (int i = 0; i < handSquareCount; i++)
+			status[i] = handSquareAtUI[i];
+		status[handSquareCount + 0] = oskAtUI;
+		status[handSquareCount + 1] = curvedUIAtUI;
 	}
 }
 

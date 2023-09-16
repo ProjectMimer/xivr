@@ -65,6 +65,12 @@ public:
 	RenderCurvedUI(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon);
 };
 
+class RenderOSK : public RenderObject
+{
+
+public:
+	RenderOSK(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon);
+};
 
 class RenderSquare : public RenderObject
 {
@@ -73,14 +79,12 @@ public:
 	RenderSquare(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon);
 };
 
-
 class RenderCube : public RenderObject
 {
 
 public:
 	RenderCube(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon);
 };
-
 
 class RenderRayLine : public RenderObject
 {

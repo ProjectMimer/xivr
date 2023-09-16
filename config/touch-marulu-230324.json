@@ -25,19 +25,19 @@
                "path" : "/user/hand/left/pose/base"
             },
             {
-               "output" : "none",
+               "output" : "/actions/game/in/lefthand_palm",
                "path" : "/user/hand/left/pose/openxr_aim"
             },
             {
-               "output" : "none",
+               "output" : "/actions/game/in/righthand_palm",
                "path" : "/user/hand/right/pose/openxr_aim"
             },
             {
-               "output" : "/actions/game/in/lefthand",
+               "output" : "/actions/game/in/lefthand_tip",
                "path" : "/user/hand/left/pose/tip"
             },
             {
-               "output" : "/actions/game/in/righthand",
+               "output" : "/actions/game/in/righthand_tip",
                "path" : "/user/hand/right/pose/tip"
             }
          ],
@@ -141,7 +141,7 @@
             },
             {
                "inputs" : {
-                  "click" : {
+                  "pull" : {
                      "output" : "/actions/game/in/xbox_right_bumper"
                   }
                },
@@ -150,7 +150,7 @@
             },
             {
                "inputs" : {
-                  "click" : {
+                  "pull" : {
                      "output" : "/actions/game/in/xbox_left_bumper"
                   }
                },
@@ -349,7 +349,7 @@
    "controller_type" : "oculus_touch",
    "description" : "\n\n",
    "interaction_profile" : "",
-   "name" : "XIVR Default Touch Bindings",
+   "name" : "Oculus Touchコントローラー用に保存されたffxiv_dx11設定",
    "options" : {},
    "simulated_actions" : []
 }

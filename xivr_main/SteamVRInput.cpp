@@ -8,8 +8,10 @@ void setActionHandlesGame(inputController* input)
 	//{
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/movement", &input->game.movement);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/rotation", &input->game.rotation);
-		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/lefthand", &input->game.lefthand);
-		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/righthand", &input->game.righthand);
+		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/lefthand_tip", &input->game.lefthand_tip);
+		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/righthand_tip", &input->game.righthand_tip);
+		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/lefthand_palm", &input->game.lefthand_palm);
+		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/righthand_palm", &input->game.righthand_palm);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/lefthand_anim", &input->game.lefthand_anim);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/righthand_anim", &input->game.righthand_anim);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/leftclick", &input->game.leftclick);
@@ -55,6 +57,9 @@ void setActionHandlesGame(inputController* input)
 
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/xbox_start", &input->game.xbox_start);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/xbox_select", &input->game.xbox_select);
+
+		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/thumbrest_left", &input->game.thumbrest_left);
+		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/thumbrest_right", &input->game.thumbrest_right);
 
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/out/haptic_left", &input->game.haptic_left);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/out/haptic_right", &input->game.haptic_right);

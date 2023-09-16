@@ -26,8 +26,7 @@ class simpleVR
 	uMatrix eyeViewMatrix[2];
 	uMatrix identMatrix;
 	uMatrix hmdMatrix;
-	uMatrix controllerLeftMatrix;
-	uMatrix controllerRightMatrix;
+	uMatrix controllerMatrix[4];
 	uMatrix genericMatrix[3];
 	int gTrackCount;
 	float currentIPD;
@@ -36,6 +35,8 @@ class simpleVR
 	vr::HmdVector2_t depthRange;
 	vr::VRTextureBounds_t textureBounds[2];
 
+	fingerHandLayout layoutFinger[2];
+
 private:
 	void InitalizeVR();
 
@@ -43,14 +44,17 @@ public:
 	simpleVR(stConfiguration* config);
 	~simpleVR();
 	
+	bool PreloadVR();
 	bool StartVR();
 	bool StopVR();
 	bool isEnabled();
 	void Recenter();
 	POINT GetBufferSize();
-	void SetActionPose(vr::HmdMatrix34_t matPose, poseType pose);
+	void SetActionPose(vr::HmdMatrix34_t matPose, poseType poseType);
+	void SetSkeletalPose(vr::VRBoneTransform_t* boneArray, int boneCount, poseType poseType);
 	void SetFramePose();
-	uMatrix GetFramePose(poseType pose_type, int eye);
+	uMatrix GetFramePose(poseType poseType, int eye);
+	fingerHandLayout GetSkeletalPose(poseType poseType);
 	void Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D11Texture2D* rightEye, ID3D11Texture2D* rightDepth);
 	void WaitGetPoses();
 	void MakeIPDOffset();

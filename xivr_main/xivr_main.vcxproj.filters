@@ -33,9 +33,6 @@
     <ClInclude Include="simpleVR.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stDX11.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="BasicRenderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -43,9 +40,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="stButtonList.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="stsdkTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SteamVRInput.h">
@@ -63,6 +57,12 @@
     <ClInclude Include="RenderObject.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="stMonitorLayout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OSK.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -78,6 +78,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RenderObject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OSK.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

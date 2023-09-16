@@ -2,14 +2,17 @@
   "Author": "Marulu, StreetRat",
   "Name": "XIVR - VR Mod",
   "InternalName": "xivr",
-  "Punchline": "Mod to allow VR",
-  "AssemblyVersion": "0.0.3.2",
-  "Description": "Mod to allow vr. Requires SteamVR Not the steam version of the game\n** Requires SteamVR **\nPlease click the globe icon for detailed instructions.\nChat/FAQ: flat2vr.com",
+  "AssemblyVersion": "0.0.5.3",
+  "Description": "** Requires SteamVR **\nThe following Settings have to be enabled for the mod to operate:\nIn XIVLauncher: Choose how to load dalamud: New\nIn InGame Dalamud Settings: Wait for plugins before game loads\n\nPlease click the globe icon for detailed instructions.\nChat/FAQ: flat2vr.com",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/ProjectMimer/xivr",
   "Tags": [
     "utility"
   ],
   "DalamudApiLevel": 8,
-  "LoadPriority": 0
+  "LoadPriority": 0,
+  "LoadRequiredState": 2,
+  "LoadSync": true,
+  "Punchline": "Mod to allow VR",
+  "AcceptsFeedback": true
 }

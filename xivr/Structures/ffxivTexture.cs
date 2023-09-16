@@ -8,7 +8,7 @@ namespace xivr.Structures
     public unsafe struct Texture
     {
         [FieldOffset(0x00)] public void* vtbl;
-        [FieldOffset(0x08)] public int type;
+        [FieldOffset(0x08)] public int RefCount;
         [FieldOffset(0x18)] public long uk5;
         [FieldOffset(0x20)] public Notifier Notifier;
         [FieldOffset(0x38)] public uint Width;

@@ -1,21 +1,16 @@
-﻿using Dalamud;
-using Dalamud.Logging;
-using FFXIVClientStructs.FFXIV.Client.Game.Control;
+﻿using Dalamud.Logging;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
-using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using static FFXIVClientStructs.FFXIV.Client.UI.AddonNamePlate;
 
 namespace xivr
 {
-    
+
     public static unsafe class VRCursor
     {
         private static NamePlateObject* currentNPTarget = null;
 
-        
-
-        public static unsafe bool SetupVRTargetCursor(AtkTextNode** vrTrgCursor)
+        public static unsafe bool SetupVRTargetCursor(AtkTextNode** vrTrgCursor, int targetCursorSize)
         {
             if ((*vrTrgCursor) != null)
             {
@@ -37,7 +32,7 @@ namespace xivr
 
             (*vrTrgCursor)->LineSpacing = 12;
             (*vrTrgCursor)->AlignmentFontType = 4;
-            (*vrTrgCursor)->FontSize = (byte)xivr.cfg.data.targetCursorSize;
+            (*vrTrgCursor)->FontSize = (byte)targetCursorSize;
             (*vrTrgCursor)->TextFlags = (byte)(TextFlags.AutoAdjustNodeSize | TextFlags.Edge);
             (*vrTrgCursor)->TextFlags2 = 0;
 
@@ -123,11 +118,11 @@ namespace xivr
             }
         }
 
-        public static void UpdateVRCursorSize(AtkTextNode** vrTrgCursor)
+        public static void UpdateVRCursorSize(AtkTextNode** vrTrgCursor, int targetCursorSize)
         {
             if ((*vrTrgCursor) == null) return;
 
-            (*vrTrgCursor)->FontSize = (byte)xivr.cfg.data.targetCursorSize;
+            (*vrTrgCursor)->FontSize = (byte)targetCursorSize;
             ushort outWidth = 0;
             ushort outHeight = 0;
             (*vrTrgCursor)->GetTextDrawSize(&outWidth, &outHeight);

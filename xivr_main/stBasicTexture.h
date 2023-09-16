@@ -1,6 +1,250 @@
 #pragma once
 #include <d3d11_4.h>
 #include <sstream>
+#include <map>
+#include <wincodec.h>
+#include <strsafe.h>
+
+void forceFlush();
+
+#if (_WIN32_WINNT >= 0x0602 /*_WIN32_WINNT_WIN8*/) && !defined(DXGI_1_2_FORMATS)
+#define DXGI_1_2_FORMATS
+#endif
+
+inline bool operator<  (const GUID& left, const GUID& Right) { return memcmp(&left, &Right, sizeof(Right)) < 0; }
+inline bool operator<= (const GUID& left, const GUID& Right) { return memcmp(&left, &Right, sizeof(Right)) <= 0; }
+inline bool operator>  (const GUID& left, const GUID& Right) { return memcmp(&left, &Right, sizeof(Right)) > 0; }
+inline bool operator>= (const GUID& left, const GUID& Right) { return memcmp(&left, &Right, sizeof(Right)) >= 0; }
+//inline bool operator== (const GUID& left, const GUID& Right) { return memcmp(&left, &Right, sizeof(Right)) == 0; }
+
+class WIC_DXGI
+{
+	std::map<GUID, DXGI_FORMAT> DXGIFormat =
+	{
+		{ GUID_WICPixelFormatDontCare,				DXGI_FORMAT_UNKNOWN },
+		{ GUID_WICPixelFormat128bppRGBAFloat,       DXGI_FORMAT_R32G32B32A32_FLOAT },
+		{ GUID_WICPixelFormat64bppRGBAHalf,         DXGI_FORMAT_R16G16B16A16_FLOAT },
+		{ GUID_WICPixelFormat64bppRGBA,             DXGI_FORMAT_R16G16B16A16_UNORM },
+		{ GUID_WICPixelFormat32bppRGBA,             DXGI_FORMAT_R8G8B8A8_UNORM },
+		{ GUID_WICPixelFormat32bppBGRA,             DXGI_FORMAT_B8G8R8A8_UNORM }, // DXGI 1.1
+		{ GUID_WICPixelFormat32bppBGR,              DXGI_FORMAT_B8G8R8X8_UNORM }, // DXGI 1.1
+		{ GUID_WICPixelFormat32bppRGBA1010102XR,    DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM }, // DXGI 1.1
+		{ GUID_WICPixelFormat32bppRGBA1010102,      DXGI_FORMAT_R10G10B10A2_UNORM },
+		{ GUID_WICPixelFormat32bppRGBE,             DXGI_FORMAT_R9G9B9E5_SHAREDEXP },
+#ifdef DXGI_1_2_FORMATS
+		{ GUID_WICPixelFormat16bppBGRA5551,         DXGI_FORMAT_B5G5R5A1_UNORM },
+		{ GUID_WICPixelFormat16bppBGR565,           DXGI_FORMAT_B5G6R5_UNORM },
+#endif // DXGI_1_2_FORMATS
+		{ GUID_WICPixelFormat32bppGrayFloat,        DXGI_FORMAT_R32_FLOAT },
+		{ GUID_WICPixelFormat16bppGrayHalf,         DXGI_FORMAT_R16_FLOAT },
+		{ GUID_WICPixelFormat16bppGray,             DXGI_FORMAT_R16_UNORM },
+		{ GUID_WICPixelFormat8bppGray,              DXGI_FORMAT_R8_UNORM },
+		{ GUID_WICPixelFormat8bppAlpha,             DXGI_FORMAT_A8_UNORM },
+#if (_WIN32_WINNT >= 0x0602 /*_WIN32_WINNT_WIN8*/)
+		{ GUID_WICPixelFormat96bppRGBFloat,         DXGI_FORMAT_R32G32B32_FLOAT },
+#endif
+	};
+
+	std::map<DXGI_FORMAT, int> DXGIBitsPerPixel =
+	{
+		{ DXGI_FORMAT_UNKNOWN, 0 },
+		{ DXGI_FORMAT_R32G32B32A32_FLOAT, 128 },
+		{ DXGI_FORMAT_R16G16B16A16_FLOAT, 64 },
+		{ DXGI_FORMAT_R16G16B16A16_UNORM, 64 },
+		{ DXGI_FORMAT_R8G8B8A8_UNORM, 32 },
+		{ DXGI_FORMAT_B8G8R8A8_UNORM, 32 },
+		{ DXGI_FORMAT_B8G8R8X8_UNORM, 32 },
+		{ DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM, 32 },
+		{ DXGI_FORMAT_R10G10B10A2_UNORM, 32 },
+		{ DXGI_FORMAT_R9G9B9E5_SHAREDEXP, 32 },
+		{ DXGI_FORMAT_B5G5R5A1_UNORM, 16 },
+		{ DXGI_FORMAT_B5G6R5_UNORM, 16 },
+		{ DXGI_FORMAT_R32_FLOAT, 32 },
+		{ DXGI_FORMAT_R16_FLOAT, 16 },
+		{ DXGI_FORMAT_R16_UNORM, 16 },
+		{ DXGI_FORMAT_R8_UNORM, 8 },
+		{ DXGI_FORMAT_A8_UNORM, 8 },
+		{ DXGI_FORMAT_R32G32B32_FLOAT, 96 }
+	};
+
+	std::map<WICPixelFormatGUID, WICPixelFormatGUID> WICBaseFormat =
+	{
+		{ GUID_WICPixelFormatBlackWhite,			GUID_WICPixelFormat8bppGray }, // DXGI_FORMAT_R8_UNORM
+		{ GUID_WICPixelFormat1bppIndexed,           GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat2bppIndexed,           GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat4bppIndexed,           GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat8bppIndexed,           GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat2bppGray,              GUID_WICPixelFormat8bppGray }, // DXGI_FORMAT_R8_UNORM 
+		{ GUID_WICPixelFormat4bppGray,              GUID_WICPixelFormat8bppGray }, // DXGI_FORMAT_R8_UNORM 
+		{ GUID_WICPixelFormat16bppGrayFixedPoint,   GUID_WICPixelFormat16bppGrayHalf }, // DXGI_FORMAT_R16_FLOAT 
+		{ GUID_WICPixelFormat32bppGrayFixedPoint,   GUID_WICPixelFormat32bppGrayFloat }, // DXGI_FORMAT_R32_FLOAT
+		{ GUID_WICPixelFormat32bppGrayFixedPoint,   GUID_WICPixelFormat32bppGrayFloat }, // DXGI_FORMAT_R32_FLOAT
+#ifdef DXGI_1_2_FORMATS
+		{ GUID_WICPixelFormat16bppBGR555,           GUID_WICPixelFormat16bppBGRA5551 }, // DXGI_FORMAT_B5G5R5A1_UNORM
+#else
+		{ GUID_WICPixelFormat16bppBGR555,           GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM
+		{ GUID_WICPixelFormat16bppBGRA5551,         GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM
+		{ GUID_WICPixelFormat16bppBGR565,           GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM
+#endif // DXGI_1_2_FORMATS
+		{ GUID_WICPixelFormat32bppBGR101010,        GUID_WICPixelFormat32bppRGBA1010102 }, // DXGI_FORMAT_R10G10B10A2_UNORM
+		{ GUID_WICPixelFormat24bppBGR,              GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat24bppRGB,              GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat32bppPBGRA,            GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat32bppPRGBA,            GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat48bppRGB,              GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+		{ GUID_WICPixelFormat48bppBGR,              GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+		{ GUID_WICPixelFormat64bppBGRA,             GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+		{ GUID_WICPixelFormat64bppPRGBA,            GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+		{ GUID_WICPixelFormat64bppPBGRA,            GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+		{ GUID_WICPixelFormat48bppRGBFixedPoint,    GUID_WICPixelFormat64bppRGBAHalf }, // DXGI_FORMAT_R16G16B16A16_FLOAT 
+		{ GUID_WICPixelFormat48bppBGRFixedPoint,    GUID_WICPixelFormat64bppRGBAHalf }, // DXGI_FORMAT_R16G16B16A16_FLOAT 
+		{ GUID_WICPixelFormat64bppRGBAFixedPoint,   GUID_WICPixelFormat64bppRGBAHalf }, // DXGI_FORMAT_R16G16B16A16_FLOAT 
+		{ GUID_WICPixelFormat64bppBGRAFixedPoint,   GUID_WICPixelFormat64bppRGBAHalf }, // DXGI_FORMAT_R16G16B16A16_FLOAT 
+		{ GUID_WICPixelFormat64bppRGBFixedPoint,    GUID_WICPixelFormat64bppRGBAHalf }, // DXGI_FORMAT_R16G16B16A16_FLOAT 
+		{ GUID_WICPixelFormat64bppRGBHalf,          GUID_WICPixelFormat64bppRGBAHalf }, // DXGI_FORMAT_R16G16B16A16_FLOAT 
+		{ GUID_WICPixelFormat48bppRGBHalf,          GUID_WICPixelFormat64bppRGBAHalf }, // DXGI_FORMAT_R16G16B16A16_FLOAT 
+		{ GUID_WICPixelFormat96bppRGBFixedPoint,    GUID_WICPixelFormat128bppRGBAFloat }, // DXGI_FORMAT_R32G32B32A32_FLOAT 
+		{ GUID_WICPixelFormat128bppPRGBAFloat,      GUID_WICPixelFormat128bppRGBAFloat }, // DXGI_FORMAT_R32G32B32A32_FLOAT 
+		{ GUID_WICPixelFormat128bppRGBFloat,        GUID_WICPixelFormat128bppRGBAFloat }, // DXGI_FORMAT_R32G32B32A32_FLOAT 
+		{ GUID_WICPixelFormat128bppRGBAFixedPoint,  GUID_WICPixelFormat128bppRGBAFloat }, // DXGI_FORMAT_R32G32B32A32_FLOAT 
+		{ GUID_WICPixelFormat128bppRGBFixedPoint,   GUID_WICPixelFormat128bppRGBAFloat }, // DXGI_FORMAT_R32G32B32A32_FLOAT 
+		{ GUID_WICPixelFormat32bppCMYK,             GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM 
+		{ GUID_WICPixelFormat64bppCMYK,             GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+		{ GUID_WICPixelFormat40bppCMYKAlpha,        GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+		{ GUID_WICPixelFormat80bppCMYKAlpha,        GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+#if (_WIN32_WINNT >= 0x0602 /*_WIN32_WINNT_WIN8*/)
+		{ GUID_WICPixelFormat32bppRGB,              GUID_WICPixelFormat32bppRGBA }, // DXGI_FORMAT_R8G8B8A8_UNORM
+		{ GUID_WICPixelFormat64bppRGB,              GUID_WICPixelFormat64bppRGBA }, // DXGI_FORMAT_R16G16B16A16_UNORM
+		{ GUID_WICPixelFormat64bppPRGBAHalf,        GUID_WICPixelFormat64bppRGBAHalf }, // DXGI_FORMAT_R16G16B16A16_FLOAT 
+#endif
+	};
+
+	IWICImagingFactory* wicFactory = nullptr;
+
+public:
+	DXGI_FORMAT GetFormat(WICPixelFormatGUID wicFormat)
+	{
+		std::map<WICPixelFormatGUID, DXGI_FORMAT>::iterator it = DXGIFormat.find(wicFormat);
+		if (it != DXGIFormat.end())
+			return it->second;
+		else
+			return DXGI_FORMAT_UNKNOWN;
+	}
+
+	int GetBitsPerPixel(DXGI_FORMAT dxgiFormat)
+	{
+		std::map<DXGI_FORMAT, int>::iterator it = DXGIBitsPerPixel.find(dxgiFormat);
+		if (it != DXGIBitsPerPixel.end())
+			return it->second;
+		else
+			return 0;
+	}
+
+	WICPixelFormatGUID GetBaseFormat(WICPixelFormatGUID wicFormat)
+	{
+		std::map<WICPixelFormatGUID, WICPixelFormatGUID>::iterator it = WICBaseFormat.find(wicFormat);
+		if (it != WICBaseFormat.end())
+			return it->second;
+		else
+			return GUID_WICPixelFormatDontCare;
+	}
+
+	int LoadImageDataFromFile(const char* filename, BYTE** imageData, D3D11_TEXTURE2D_DESC* textureDesc, int* texturePitch)
+	{
+		HRESULT result = S_OK;
+		IWICBitmapDecoder* wicDecoder = NULL;
+		IWICBitmapFrameDecode* wicFrame = NULL;
+		IWICFormatConverter* wicConverter = NULL;
+
+		bool imageConverted = false;
+
+		WCHAR folderPath[MAX_PATH] = { 0 };
+
+		StringCchPrintfW(folderPath, MAX_PATH, L"%S", filename);
+
+		if (wicFactory == NULL)
+		{
+			result = CoInitialize(NULL);
+			result = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&wicFactory));
+			if (FAILED(result))
+				return 1;
+		}
+
+		result = wicFactory->CreateDecoderFromFilename(folderPath, NULL, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &wicDecoder);
+		if (FAILED(result))
+			return 2;
+
+		result = wicDecoder->GetFrame(0, &wicFrame);
+		if (FAILED(result))
+			return 3;
+
+		WICPixelFormatGUID pixelFormat;
+		result = wicFrame->GetPixelFormat(&pixelFormat);
+		if (FAILED(result))
+			return 4;
+
+		UINT textureWidth, textureHeight;
+		result = wicFrame->GetSize(&textureWidth, &textureHeight);
+		if (FAILED(result))
+			return 5;
+
+		//----
+		// Check the current format against itself to see if it needs to be converted
+		//----
+		DXGI_FORMAT dxgiFormat = GetFormat(pixelFormat);
+		if (dxgiFormat == DXGI_FORMAT_UNKNOWN)
+		{
+			WICPixelFormatGUID pixelFormatBase = GetBaseFormat(pixelFormat);
+			if (pixelFormat != pixelFormatBase)
+			{
+				result = wicFactory->CreateFormatConverter(&wicConverter);
+				if (FAILED(result))
+					return 6;
+
+				BOOL canConvert = FALSE;
+				result = wicConverter->CanConvert(pixelFormat, pixelFormatBase, &canConvert);
+				if (FAILED(result) || !canConvert)
+					return 7;
+
+				result = wicConverter->Initialize(wicFrame, pixelFormatBase, WICBitmapDitherTypeErrorDiffusion, 0, 0, WICBitmapPaletteTypeCustom);
+				if (FAILED(result))
+					return 8;
+
+				imageConverted = true;
+				dxgiFormat = GetFormat(pixelFormatBase);
+			}
+		}
+
+		textureDesc->Format = dxgiFormat;
+		textureDesc->Width = textureWidth;
+		textureDesc->Height = textureHeight;
+
+		int bitsPerPixel = GetBitsPerPixel(textureDesc->Format);
+		(*texturePitch) = (textureWidth * bitsPerPixel) / 8;
+		int imageSize = (*texturePitch) * textureHeight;
+
+		*imageData = (BYTE*)malloc(imageSize);
+		if (imageConverted)
+		{
+			result = wicConverter->CopyPixels(0, (*texturePitch), imageSize, *imageData);
+			if (FAILED(result))
+				return 9;
+		}
+		else
+		{
+			result = wicFrame->CopyPixels(0, (*texturePitch), imageSize, *imageData);
+			if (FAILED(result))
+				return 10;
+		}
+
+		if (wicDecoder) { wicDecoder->Release(); wicDecoder = NULL; };
+		if (wicFrame) { wicFrame->Release(); wicFrame = NULL; };
+		if (wicConverter) { wicConverter->Release(); wicConverter = NULL; };
+		return 0;
+	}
+};
+
+
 
 struct stBasicTexture
 {
@@ -45,26 +289,28 @@ struct stBasicTexture
 		textureDesc.Height = tHeight;
 	}
 
-	bool Create(ID3D11Device* dev, bool rtv, bool srv)
+	bool Create(ID3D11Device* dev, bool rtv, bool srv, bool shared)
 	{
 		bool retVal = true;
-		if (pSharedHandle)
+		if (pSharedHandle && shared)
 			retVal = CreateShared(dev, rtv, srv);
 		else
-			retVal = CreateNew(dev, rtv, srv);
+			retVal = CreateNew(dev, rtv, srv, shared);
 		return retVal;
 	}
 
-	bool CreateNew(ID3D11Device* dev, bool rtv, bool srv, D3D11_SUBRESOURCE_DATA* data = NULL)
+	bool CreateNew(ID3D11Device* dev, bool rtv, bool srv, bool shared, D3D11_SUBRESOURCE_DATA* data = NULL)
 	{
 		bool retVal = true;
 		HRESULT result = dev->CreateTexture2D(&textureDesc, data, &pTexture);
-		if (FAILED(result)) {
+		if (FAILED(result))
+		{
 			logError << "Failed to create new Texture2D " << std::hex << result << std::endl;
 			retVal = false;
 		}
 		creationType = 1;
-		GetSharedHandle();
+		if (shared)
+			GetSharedHandle();
 		if (retVal == true && rtv == true)
 			retVal = CreateRenderTargetView(dev);
 		if (retVal == true && srv == true)
@@ -76,7 +322,8 @@ struct stBasicTexture
 	{
 		bool retVal = true;
 		HRESULT result = dev->OpenSharedResource(pSharedHandle, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pTexture));
-		if (FAILED(result)) {
+		if (FAILED(result))
+		{
 			logError << "Failed to create shared Texture2D " << std::hex << result << std::endl;
 			retVal = false;
 		}
@@ -89,13 +336,39 @@ struct stBasicTexture
 		return retVal;
 	}
 
+	bool CreateFromFile(ID3D11Device* dev, bool rtv, bool srv, bool shared, const char* file_path)
+	{
+		bool retVal = true;
+		BYTE* imageData;
+		WIC_DXGI imgLoader = WIC_DXGI();
+		int texturePitch = 0;
+		int result = imgLoader.LoadImageDataFromFile(file_path, &imageData, &textureDesc, &texturePitch);
+		if (result != 0)
+		{
+			logError << "Failed to create Texture2D from " << std::hex << file_path << " : " << result << std::endl;
+			retVal = false;
+		}
+		else
+		{
+			D3D11_SUBRESOURCE_DATA resData = D3D11_SUBRESOURCE_DATA();
+			resData.pSysMem = imageData;
+			resData.SysMemPitch = texturePitch;
+			resData.SysMemSlicePitch = 0;
+
+			retVal = CreateNew(dev, rtv, srv, shared, &resData);
+		}
+		free(imageData);
+		return retVal;
+	}
+
 	bool GetSharedHandle()
 	{
 		if (pTexture)
 		{
 			IDXGIResource* renderResource(NULL);
 			HRESULT result = pTexture->QueryInterface(__uuidof(IDXGIResource), (LPVOID*)&renderResource);
-			if (FAILED(result)) {
+			if (FAILED(result))
+			{
 				logError << "Failed to get Shared Resource " << std::hex << result << std::endl;
 				return false;
 			}
@@ -118,7 +391,8 @@ struct stBasicTexture
 		renderTargetViewDesc.Texture2D.MipSlice = 0;
 
 		HRESULT result = dev->CreateRenderTargetView(pTexture, &renderTargetViewDesc, &pRenderTarget);
-		if (FAILED(result)) {
+		if (FAILED(result))
+		{
 			logError << "Failed to create RenderTarget View " << std::hex << result << std::endl;
 			return false;
 		}
@@ -138,7 +412,8 @@ struct stBasicTexture
 		shaderResourceViewDesc.Texture2D.MipLevels = 1;
 
 		HRESULT result = dev->CreateShaderResourceView(pTexture, &shaderResourceViewDesc, &pShaderResource);
-		if (FAILED(result)) {
+		if (FAILED(result))
+		{
 			logError << "Failed to create ShaderResource View " << std::hex << result << std::endl;
 			return false;
 		}
@@ -159,7 +434,7 @@ struct stBasicTexture
 		HRESULT result = dev->CreateDepthStencilView(pTexture, &depthStencilViewDesc, &pDepthStencilView);
 		if (FAILED(result))
 		{
-			logError << "Failed to create DepthStencilView " << std::hex << result << std::endl;
+			logError << "Failed to create DepthStencil View " << std::hex << result << std::endl;
 			return false;
 		}
 

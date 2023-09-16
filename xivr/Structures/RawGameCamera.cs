@@ -81,8 +81,9 @@ namespace xivr.Structures
         [FieldOffset(0xA0)] public int OffsetIndex;
         [FieldOffset(0xA4)] public float FOV;
         [FieldOffset(0xA8)] public float MkProj1;
-        [FieldOffset(0xAC)] public float MkProj2;
-        [FieldOffset(0xB0)] public float DrawDistance;
+        [FieldOffset(0xAC)] public float Aspect;
+        [FieldOffset(0xB0)] public float NearClip;
+        [FieldOffset(0xB4)] public float FarClip;
         [FieldOffset(0xC0)] public Matrix4x4 CalculationMatrix;
         [FieldOffset(0x120)] public CameraThreadedData* ThreadedData;
         [FieldOffset(0x128)] public UInt64 unk1;

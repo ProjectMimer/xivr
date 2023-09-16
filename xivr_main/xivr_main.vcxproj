@@ -119,19 +119,19 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)openvr\headers;D:\Projects\Detours-master\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)openvr\headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>$(SolutionDir)openvr\lib\win64;D:\Projects\Detours-master\lib.X64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)openvr\lib\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>d3dcompiler.lib;d3d11.lib;dxgi.lib;openvr_api.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y $(SolutionDir)openvr\bin\win64\openvr_api.dll $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\
-xcopy /y $(OutDir)xivr_main.dll $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\
-xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configuration)\config\</Command>
+      <Command>xcopy /y $(SolutionDir)openvr\bin\win64\openvr_api.dll $(SolutionDir)xivr-Ex\bin\$(Platform)\$(Configuration)\
+xcopy /y $(OutDir)xivr_main.dll $(SolutionDir)xivr-Ex\bin\$(Platform)\$(Configuration)\
+xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr-Ex\bin\$(Platform)\$(Configuration)\config\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -172,18 +172,19 @@ xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr\bin\$(Platform)\$(Configurat
     <ClInclude Include="ffxivSwapChain.h" />
     <ClInclude Include="ffxivTexture.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="OSK.h" />
     <ClInclude Include="stBasicTexture.h" />
     <ClInclude Include="simpleVR.h" />
     <ClInclude Include="stButtonList.h" />
     <ClInclude Include="stCommon.h" />
-    <ClInclude Include="stDX11.h" />
     <ClInclude Include="SteamVRInput.h" />
     <ClInclude Include="RenderObject.h" />
-    <ClInclude Include="stsdkTypes.h" />
+    <ClInclude Include="stMonitorLayout.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BasicRenderer.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="OSK.cpp" />
     <ClCompile Include="RenderObject.cpp" />
     <ClCompile Include="simpleVR.cpp" />
     <ClCompile Include="SteamVRInput.cpp" />
